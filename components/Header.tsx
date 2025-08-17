@@ -1,10 +1,15 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useState } from 'react';
+import Link from "next/link";
+import { useState } from "react";
+import { useAuthStore } from "@/lib/authStore";
 
 export default function Header() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const clearAccessToken = useAuthStore((state) => state.clearAccessToken);
+
+  const isLoggedIn = !!accessToken;
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
@@ -37,13 +42,16 @@ export default function Header() {
           {/* 사용자 메뉴 */}
           <div className="relative">
             <div className="flex items-center gap-4">
-              <Link href="/host" className="hidden md:block text-sm font-medium hover:bg-gray-100 px-3 py-2 rounded-full transition-colors whitespace-nowrap">
+              <Link
+                href="/host"
+                className="hidden md:block text-sm font-medium hover:bg-gray-100 px-3 py-2 rounded-full transition-colors whitespace-nowrap"
+              >
                 당신의 공간을 에어비앤비하세요
               </Link>
               <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                 <i className="ri-global-line w-5 h-5 flex items-center justify-center"></i>
               </button>
-              <button 
+              <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="flex items-center gap-2 border border-gray-300 rounded-full px-3 py-2 hover:shadow-md transition-shadow"
               >
@@ -56,22 +64,91 @@ export default function Header() {
 
             {isUserMenuOpen && (
               <div className="absolute right-0 top-full mt-2 w-60 bg-white border border-gray-200 rounded-2xl shadow-lg py-2">
-                <Link href="/login" className="block px-4 py-3 text-sm hover:bg-gray-50 font-medium">
-                  로그인
-                </Link>
-                <Link href="/signup" className="block px-4 py-3 text-sm hover:bg-gray-50">
-                  회원가입
-                </Link>
-                <hr className="my-2" />
-                <Link href="/host" className="block px-4 py-3 text-sm hover:bg-gray-50">
-                  숙소 호스트 하기
-                </Link>
-                <Link href="/experiences" className="block px-4 py-3 text-sm hover:bg-gray-50">
-                  체험 호스트 하기
-                </Link>
-                <Link href="/help" className="block px-4 py-3 text-sm hover:bg-gray-50">
-                  도움말
-                </Link>
+                {isLoggedIn ? (
+                  <>
+                    <Link
+                      href="/profile"
+                      className="block px-4 py-3 text-sm hover:bg-gray-50 font-medium"
+                    >
+                      프로필
+                    </Link>
+                    <Link
+                      href="/account"
+                      className="block px-4 py-3 text-sm hover:bg-gray-50"
+                    >
+                      계정 관리
+                    </Link>
+                    <Link
+                      href="/bookings"
+                      className="block px-4 py-3 text-sm hover:bg-gray-50"
+                    >
+                      예약 내역
+                    </Link>
+                    <Link
+                      href="/wishlist"
+                      className="block px-4 py-3 text-sm hover:bg-gray-50"
+                    >
+                      위시리스트
+                    </Link>
+                    <hr className="my-2" />
+                    <Link
+                      href="/host"
+                      className="block px-4 py-3 text-sm hover:bg-gray-50"
+                    >
+                      숙소 호스트 하기
+                    </Link>
+                    <Link
+                      href="/experiences"
+                      className="block px-4 py-3 text-sm hover:bg-gray-50"
+                    >
+                      체험 호스트 하기
+                    </Link>
+                    <hr className="my-2" />
+                    <button
+                      onClick={() => {
+                        clearAccessToken();
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="block w-full text-left px-4 py-3 text-sm hover:bg-gray-50 text-red-600"
+                    >
+                      로그아웃
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      className="block px-4 py-3 text-sm hover:bg-gray-50 font-medium"
+                    >
+                      로그인
+                    </Link>
+                    <Link
+                      href="/signup"
+                      className="block px-4 py-3 text-sm hover:bg-gray-50"
+                    >
+                      회원가입
+                    </Link>
+                    <hr className="my-2" />
+                    <Link
+                      href="/host"
+                      className="block px-4 py-3 text-sm hover:bg-gray-50"
+                    >
+                      숙소 호스트 하기
+                    </Link>
+                    <Link
+                      href="/experiences"
+                      className="block px-4 py-3 text-sm hover:bg-gray-50"
+                    >
+                      체험 호스트 하기
+                    </Link>
+                    <Link
+                      href="/help"
+                      className="block px-4 py-3 text-sm hover:bg-gray-50"
+                    >
+                      도움말
+                    </Link>
+                  </>
+                )}
               </div>
             )}
           </div>
