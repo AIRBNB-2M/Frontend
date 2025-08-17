@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useAuthStore } from "@/lib/authStore";
+import http from "@/lib/http";
+import { useRouter } from "next/navigation";
 
 export default function Header() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const accessToken = useAuthStore((state) => state.accessToken);
   const clearAccessToken = useAuthStore((state) => state.clearAccessToken);
+  const router = useRouter();
 
   const isLoggedIn = !!accessToken;
 
@@ -59,6 +62,27 @@ export default function Header() {
                 <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center">
                   <i className="ri-user-line w-5 h-5 flex items-center justify-center text-white"></i>
                 </div>
+              </button>
+              <button
+                className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+                onClick={async () => {
+                  try {
+                    const res = await http.get("/test");
+                    alert(JSON.stringify(res.data));
+                  } catch (err: any) {
+                    if (err?.forceLogout) {
+                      alert(
+                        err.message ||
+                          "인증이 만료되었습니다. 다시 로그인해주세요."
+                      );
+                      router.push("/login");
+                      return;
+                    }
+                    alert(err?.message || "에러 발생");
+                  }
+                }}
+              >
+                Test
               </button>
             </div>
 

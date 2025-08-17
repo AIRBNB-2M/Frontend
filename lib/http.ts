@@ -75,8 +75,13 @@ http.interceptors.response.use(
     try {
       const newToken = await refreshAccessToken();
       if (!newToken) {
-        const message = "인증이 만료되었습니다. 다시 로그인해주세요.";
-        return Promise.reject(new Error(message));
+        const { clearAccessToken } = useAuthStore.getState();
+        clearAccessToken();
+        const error = new Error(
+          "인증이 만료되었습니다. 다시 로그인해주세요."
+        ) as any;
+        error.forceLogout = true;
+        return Promise.reject(error);
       }
       originalRequest.headers = originalRequest.headers || {};
       (originalRequest.headers as any)["Authorization"] = `Bearer ${newToken}`;
@@ -84,9 +89,11 @@ http.interceptors.response.use(
     } catch (refreshErr: any) {
       const { clearAccessToken } = useAuthStore.getState();
       clearAccessToken();
-      const message =
-        refreshErr?.message || "인증이 만료되었습니다. 다시 로그인해주세요.";
-      return Promise.reject(new Error(message));
+      const error = new Error(
+        refreshErr?.message || "인증이 만료되었습니다. 다시 로그인해주세요."
+      ) as any;
+      error.forceLogout = true;
+      return Promise.reject(error);
     }
   }
 );
