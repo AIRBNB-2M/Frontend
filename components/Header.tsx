@@ -129,9 +129,15 @@ export default function Header() {
                     </Link>
                     <hr className="my-2" />
                     <button
-                      onClick={() => {
+                      onClick={async () => {
+                        try {
+                          await http.post("/api/auth/logout");
+                        } catch (e) {
+                          // 서버 로그아웃 실패는 무시하고 클라이언트 상태만 비움
+                        }
                         clearAccessToken();
                         setIsUserMenuOpen(false);
+                        router.push("/login");
                       }}
                       className="block w-full text-left px-4 py-3 text-sm hover:bg-gray-50 text-red-600"
                     >

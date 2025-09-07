@@ -98,6 +98,15 @@ http.interceptors.response.use(
   }
 );
 
+export async function fetchAccommodations(areaCode?: string) {
+  let url = "/api/accommodations";
+  if (areaCode) {
+    url += `?areaCode=${encodeURIComponent(areaCode)}`;
+  }
+  const res = await http.get(url);
+  return res.data;
+}
+
 export default http;
 
 // ----- internal helpers -----
