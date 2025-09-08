@@ -1,23 +1,27 @@
 "use client";
 
 import Header from "@/components/Header";
+import SearchHeader from "@/components/SearchHeader";
 import CategoryFilter from "@/components/CategoryFilter";
 import { useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import PropertyCard from "@/components/PropertyCard";
 import { useState, useEffect } from "react";
 import { fetchAccommodations } from "@/lib/http";
 
-export default function Home() {
+function Home() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [accommodations, setAccommodations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   // areaCode로 숙소 목록 요청
-  const fetchAndSetAccommodations = (areaCode?: string) => {
+  useEffect(() => {
     setLoading(true);
     setError("");
-    fetchAccommodations(areaCode)
+    fetchAccommodations()
       .then((data) => {
         setAccommodations(data);
         setLoading(false);
@@ -26,10 +30,6 @@ export default function Home() {
         setError(err.message || "숙소 정보를 불러오지 못했습니다.");
         setLoading(false);
       });
-  };
-
-  useEffect(() => {
-    fetchAndSetAccommodations();
   }, []);
 
   // areaName별로 그룹핑, 카테고리 필터 적용
@@ -53,6 +53,7 @@ export default function Home() {
       }));
       return {
         areaName: area.areaName,
+        areaCode: area.areaCode, // areaCode 포함
         properties,
       };
     })
@@ -72,14 +73,16 @@ export default function Home() {
     }
   };
 
-  // 지역 인기 숙소 헤더 클릭 시 areaCode로 API 요청
+  // 지역 인기 숙소 헤더 클릭 시 /accommodations?areaCode=...로 이동
   const handleAreaHeaderClick = (areaCode: string) => {
-    fetchAndSetAccommodations(areaCode);
+    if (!areaCode) return;
+    router.push(`/accommodations?areaCode=${encodeURIComponent(areaCode)}`);
   };
 
   return (
     <div className="min-h-screen bg-white">
       <Header />
+      <SearchHeader />
       <CategoryFilter
         selectedCategory={selectedCategory}
         onCategoryChange={setSelectedCategory}
@@ -114,9 +117,7 @@ export default function Home() {
               >
                 <h3
                   className="text-xl font-bold mb-4 cursor-pointer inline-block"
-                  onClick={() =>
-                    handleAreaHeaderClick(area.properties[0]?.areaCode)
-                  }
+                  onClick={() => handleAreaHeaderClick(area.areaCode)}
                 >
                   {area.areaName}의 인기 숙소
                 </h3>
@@ -133,30 +134,33 @@ export default function Home() {
       <ScrollToTopButton />
     </div>
   );
-  // 오른쪽 하단 맨 위로 가기 버튼
-  function ScrollToTopButton() {
-    const [visible, setVisible] = useState(false);
-    useEffect(() => {
-      const onScroll = () => {
-        setVisible(window.scrollY > 300);
-      };
-      window.addEventListener("scroll", onScroll);
-      return () => window.removeEventListener("scroll", onScroll);
-    }, []);
-    if (!visible) return null;
-    return (
-      <button
-        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className="fixed bottom-8 right-8 z-50 bg-black text-white rounded-full shadow-lg p-3 hover:bg-gray-800 transition-colors"
-        aria-label="맨 위로 가기"
-      >
-        <i className="ri-arrow-up-line text-2xl"></i>
-      </button>
-    );
-  }
-
-  // AreaScrollRow 컴포넌트는 아래에 정의
 }
+
+export default Home;
+
+// 오른쪽 하단 맨 위로 가기 버튼
+function ScrollToTopButton() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const onScroll = () => {
+      setVisible(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  if (!visible) return null;
+  return (
+    <button
+      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      className="fixed bottom-8 right-8 z-50 bg-black text-white rounded-full shadow-lg p-3 hover:bg-gray-800 transition-colors"
+      aria-label="맨 위로 가기"
+    >
+      <i className="ri-arrow-up-line text-2xl"></i>
+    </button>
+  );
+}
+
+// (중복) AreaScrollRow 함수 선언 제거
 
 // 한 줄 넘으면 좌우 스크롤/화살표로 넘기는 컴포넌트
 function AreaScrollRow({ properties }: { properties: any[] }) {

@@ -101,7 +101,7 @@ http.interceptors.response.use(
 export async function fetchAccommodations(areaCode?: string) {
   let url = "/api/accommodations";
   if (areaCode) {
-    url += `?areaCode=${encodeURIComponent(areaCode)}`;
+    url = `/api/accommodations/area?areaCode=${encodeURIComponent(areaCode)}`;
   }
   const res = await http.get(url);
   return res.data;

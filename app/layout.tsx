@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Pacifico } from "next/font/google";
 import "./globals.css";
+import "./react-time-picker-global.css";
 import RefreshAccessTokenOnMount from "@/components/RefreshAccessTokenOnMount";
 
 const pacifico = Pacifico({
