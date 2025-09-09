@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import SearchHeader from "@/components/SearchHeader";
 import CategoryFilter from "@/components/CategoryFilter";
 import PropertyCard from "@/components/PropertyCard";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { fetchAccommodations } from "@/lib/http";
 
@@ -32,7 +32,7 @@ interface PageResponseDto {
   size: number;
 }
 
-export default function AccommodationsPage() {
+function AccommodationsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -136,8 +136,7 @@ export default function AccommodationsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
+    <>
       <SearchHeader />
       <CategoryFilter
         selectedCategory={selectedCategory}
@@ -231,6 +230,26 @@ export default function AccommodationsPage() {
           </>
         )}
       </main>
+    </>
+  );
+}
+
+export default function AccommodationsPage() {
+  return (
+    <div className="min-h-screen bg-white">
+      <Header />
+      <Suspense
+        fallback={
+          <div className="max-w-screen-2xl mx-auto px-6 py-8">
+            <div className="text-center py-10">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
+              <p>페이지 로딩 중...</p>
+            </div>
+          </div>
+        }
+      >
+        <AccommodationsContent />
+      </Suspense>
     </div>
   );
 }

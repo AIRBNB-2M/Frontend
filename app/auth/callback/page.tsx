@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import { useAuthStore } from "@/lib/authStore";
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading"
   );
@@ -82,57 +82,79 @@ export default function AuthCallbackPage() {
     };
 
     handleAuthCallback();
-  }, [searchParams, router]);
+  }, [searchParams, router, setAccessToken]);
 
+  return (
+    <main className="max-w-md mx-auto px-6 py-12">
+      <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-lg text-center">
+        {status === "loading" && (
+          <>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
+            <h1 className="text-xl font-semibold text-gray-900 mb-2">
+              인증 처리 중...
+            </h1>
+            <p className="text-gray-600">잠시만 기다려주세요.</p>
+          </>
+        )}
+
+        {status === "error" && (
+          <>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <i className="ri-error-warning-line text-2xl text-red-600"></i>
+            </div>
+            <h1 className="text-xl font-semibold text-gray-900 mb-2">
+              인증 실패
+            </h1>
+            <p className="text-gray-600 mb-6">{message}</p>
+            <div className="space-y-3">
+              <button
+                onClick={() => router.push("/login")}
+                className="w-full bg-pink-500 text-white py-3 rounded-lg hover:bg-pink-600 transition-colors font-medium"
+              >
+                로그인 페이지로 돌아가기
+              </button>
+              <button
+                onClick={() => router.push("/signup")}
+                className="w-full border border-gray-300 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                회원가입 페이지로 이동
+              </button>
+              <button
+                onClick={() => window.history.back()}
+                className="w-full border border-gray-300 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                이전 페이지로 돌아가기
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
+// 로딩 스피너 컴포넌트
+function LoadingSpinner() {
+  return (
+    <main className="max-w-md mx-auto px-6 py-12">
+      <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-lg text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
+        <h1 className="text-xl font-semibold text-gray-900 mb-2">
+          페이지 로딩 중...
+        </h1>
+        <p className="text-gray-600">잠시만 기다려주세요.</p>
+      </div>
+    </main>
+  );
+}
+
+export default function AuthCallbackPage() {
   return (
     <div className="min-h-screen bg-white">
       <Header />
-
-      <main className="max-w-md mx-auto px-6 py-12">
-        <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-lg text-center">
-          {status === "loading" && (
-            <>
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
-              <h1 className="text-xl font-semibold text-gray-900 mb-2">
-                인증 처리 중...
-              </h1>
-              <p className="text-gray-600">잠시만 기다려주세요.</p>
-            </>
-          )}
-
-          {status === "error" && (
-            <>
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i className="ri-error-warning-line text-2xl text-red-600"></i>
-              </div>
-              <h1 className="text-xl font-semibold text-gray-900 mb-2">
-                인증 실패
-              </h1>
-              <p className="text-gray-600 mb-6">{message}</p>
-              <div className="space-y-3">
-                <button
-                  onClick={() => router.push("/login")}
-                  className="w-full bg-pink-500 text-white py-3 rounded-lg hover:bg-pink-600 transition-colors font-medium"
-                >
-                  로그인 페이지로 돌아가기
-                </button>
-                <button
-                  onClick={() => router.push("/signup")}
-                  className="w-full border border-gray-300 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                >
-                  회원가입 페이지로 이동
-                </button>
-                <button
-                  onClick={() => window.history.back()}
-                  className="w-full border border-gray-300 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                >
-                  이전 페이지로 돌아가기
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </main>
+      <Suspense fallback={<LoadingSpinner />}>
+        <AuthCallbackContent />
+      </Suspense>
     </div>
   );
 }

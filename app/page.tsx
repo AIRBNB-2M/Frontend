@@ -3,13 +3,13 @@
 import Header from "@/components/Header";
 import SearchHeader from "@/components/SearchHeader";
 import CategoryFilter from "@/components/CategoryFilter";
-import { useRef } from "react";
+import { useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PropertyCard from "@/components/PropertyCard";
 import { useState, useEffect } from "react";
 import { fetchAccommodations } from "@/lib/http";
 
-function Home() {
+function HomeContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [accommodations, setAccommodations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,8 +80,7 @@ function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
+    <>
       <SearchHeader />
       <CategoryFilter
         selectedCategory={selectedCategory}
@@ -132,6 +131,28 @@ function Home() {
       </main>
       {/* 맨 위로 가기 버튼 */}
       <ScrollToTopButton />
+    </>
+  );
+}
+
+function Home() {
+  return (
+    <div className="min-h-screen bg-white">
+      <Header />
+      <Suspense
+        fallback={
+          <div className="w-full bg-white shadow rounded-full px-4 py-2 max-w-3xl mx-auto mt-6 mb-8 flex-nowrap relative">
+            <div className="flex items-center gap-2 w-full animate-pulse">
+              <div className="flex-1 h-10 bg-gray-200 rounded-full"></div>
+              <div className="flex-1 h-10 bg-gray-200 rounded-full"></div>
+              <div className="flex-1 h-10 bg-gray-200 rounded-full"></div>
+              <div className="w-20 h-10 bg-gray-200 rounded-full"></div>
+            </div>
+          </div>
+        }
+      >
+        <HomeContent />
+      </Suspense>
     </div>
   );
 }
@@ -159,8 +180,6 @@ function ScrollToTopButton() {
     </button>
   );
 }
-
-// (중복) AreaScrollRow 함수 선언 제거
 
 // 한 줄 넘으면 좌우 스크롤/화살표로 넘기는 컴포넌트
 function AreaScrollRow({ properties }: { properties: any[] }) {
