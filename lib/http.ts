@@ -98,10 +98,12 @@ http.interceptors.response.use(
   }
 );
 
-export async function fetchAccommodations(areaCode?: string) {
+export async function fetchAccommodations(params?: Record<string, string>) {
   let url = "/api/accommodations";
-  if (areaCode) {
-    url = `/api/accommodations/area?areaCode=${encodeURIComponent(areaCode)}`;
+
+  if (params && Object.keys(params).length > 0) {
+    const query = new URLSearchParams(params).toString();
+    url = `/api/accommodations/search?${query}`;
   }
   const res = await http.get(url);
   return res.data;

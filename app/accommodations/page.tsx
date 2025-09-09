@@ -1,6 +1,7 @@
 "use client";
 
 import Header from "@/components/Header";
+import SearchHeader from "@/components/SearchHeader";
 import CategoryFilter from "@/components/CategoryFilter";
 import PropertyCard from "@/components/PropertyCard";
 import { useEffect, useState } from "react";
@@ -9,7 +10,6 @@ import { fetchAccommodations } from "@/lib/http";
 
 export default function AccommodationsPage() {
   const searchParams = useSearchParams();
-  const areaCode = searchParams.get("areaCode") || undefined;
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [accommodations, setAccommodations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +18,9 @@ export default function AccommodationsPage() {
   useEffect(() => {
     setLoading(true);
     setError("");
-    fetchAccommodations(areaCode)
+
+    const params = Object.fromEntries(searchParams.entries());
+    fetchAccommodations(params)
       .then((data) => {
         setAccommodations(data);
         setLoading(false);
@@ -27,7 +29,7 @@ export default function AccommodationsPage() {
         setError(err.message || "숙소 정보를 불러오지 못했습니다.");
         setLoading(false);
       });
-  }, [areaCode]);
+  }, [searchParams]);
 
   // areaName별로 그룹핑, 카테고리 필터 적용
   const groupedAreas = (accommodations as any[])
@@ -58,6 +60,7 @@ export default function AccommodationsPage() {
   return (
     <div className="min-h-screen bg-white">
       <Header />
+      <SearchHeader />
       <CategoryFilter
         selectedCategory={selectedCategory}
         onCategoryChange={setSelectedCategory}
