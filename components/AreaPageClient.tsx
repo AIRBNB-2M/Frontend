@@ -11,12 +11,11 @@ export default function AreaPageClient({ areaCode }: { areaCode: string }) {
   const [accommodations, setAccommodations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const router = useRouter();
 
   useEffect(() => {
     setLoading(true);
     setError("");
-    fetchAccommodations(areaCode)
+    fetchAccommodations()
       .then((data) => {
         setAccommodations(data);
         setLoading(false);
