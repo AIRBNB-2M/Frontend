@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
 import { useAuthStore } from "./authStore";
+import { DetailAccommodationResDto } from "./detailAccommodation";
 
 const http = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
@@ -97,6 +98,13 @@ http.interceptors.response.use(
     }
   }
 );
+
+export async function fetchAccommodationDetail(
+  id: string
+): Promise<DetailAccommodationResDto> {
+  const res = await http.get(`/api/accommodations/${id}`);
+  return res.data;
+}
 
 export async function fetchAccommodations(params?: Record<string, string>) {
   let url = "/api/accommodations";
