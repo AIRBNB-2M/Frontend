@@ -6,7 +6,13 @@ import "react-day-picker/dist/style.css";
 import { format, isBefore, startOfDay } from "date-fns";
 import { ko } from "date-fns/locale";
 
-export default function AirbnbDateRangePicker() {
+interface AirbnbDateRangePickerProps {
+  onDateRangeChange?: (range: { from?: Date; to?: Date } | undefined) => void;
+}
+
+export default function AirbnbDateRangePicker({
+  onDateRangeChange,
+}: AirbnbDateRangePickerProps) {
   const [range, setRange] = useState<DateRange | undefined>();
   const [open, setOpen] = useState(false);
   const [focus, setFocus] = useState<"checkin" | "checkout" | null>(null);
@@ -25,6 +31,23 @@ export default function AirbnbDateRangePicker() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // 날짜 범위 변경 시 상위 컴포넌트에 알림
+  useEffect(() => {
+    if (onDateRangeChange) {
+      onDateRangeChange(range);
+    }
+  }, [range, onDateRangeChange]);
+
+  // 날짜 선택 핸들러
+  const handleDateSelect = (selectedRange: DateRange | undefined) => {
+    setRange(selectedRange);
+
+    // 체크인과 체크아웃이 모두 선택되면 팝업 닫기
+    if (selectedRange?.from && selectedRange?.to) {
+      setOpen(false);
+    }
+  };
 
   // 버튼 텍스트
   const checkinText = range?.from
@@ -70,7 +93,7 @@ export default function AirbnbDateRangePicker() {
           <DayPicker
             mode="range"
             selected={range}
-            onSelect={setRange}
+            onSelect={handleDateSelect}
             numberOfMonths={window.innerWidth < 768 ? 1 : 2}
             pagedNavigation
             fixedWeeks
@@ -105,7 +128,13 @@ export default function AirbnbDateRangePicker() {
           {/* 날짜 지우기 버튼 */}
           {(range?.from || range?.to) && (
             <button
-              onClick={() => setRange(undefined)}
+              onClick={() => {
+                setRange(undefined);
+                setFocus(null);
+                if (onDateRangeChange) {
+                  onDateRangeChange(undefined);
+                }
+              }}
               className="mt-2 text-sm text-black-500 hover:underline"
             >
               날짜 지우기

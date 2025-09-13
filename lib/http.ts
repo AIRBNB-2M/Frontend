@@ -106,6 +106,22 @@ export async function fetchAccommodationDetail(
   return res.data;
 }
 
+export async function fetchAccommodationPrice(
+  id: string,
+  checkIn: string,
+  checkOut: string
+): Promise<{ dailyPrice: number }> {
+  // TODO: 실제 API 엔드포인트로 변경 필요
+  // 예상 엔드포인트: GET /api/accommodations/{id}/price?checkIn=2024-01-01&checkOut=2024-01-02
+  const res = await http.get(`/api/accommodations/${id}/price`, {
+    params: {
+      checkIn,
+      checkOut,
+    },
+  });
+  return res.data;
+}
+
 export async function fetchAccommodations(params?: Record<string, string>) {
   let url = "/api/accommodations";
 

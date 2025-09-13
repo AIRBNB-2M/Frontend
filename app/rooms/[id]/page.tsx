@@ -11,6 +11,7 @@ import AccommodationMap from "@/components/GoogleMap";
 import StreetView from "@/components/StreetView";
 import "react-datepicker/dist/react-datepicker.css";
 import AirbnbDateRangePicker from "@/components/DateRangePicker";
+import { differenceInDays } from "date-fns";
 
 function AccommodationDetailContent() {
   const params = useParams();
@@ -31,6 +32,8 @@ function AccommodationDetailContent() {
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
   const [infants, setInfants] = useState(0);
+  const [dailyPrice, setDailyPrice] = useState<number | null>(null);
+  const [priceLoading, setPriceLoading] = useState(false);
 
   const countedGuests = adults + children; // 최대 인원 제한에 포함되는 수
   const totalGuests = adults + children + infants;
@@ -85,6 +88,64 @@ function AccommodationDetailContent() {
         setLoading(false);
       });
   }, [accommodationId]);
+
+  // 날짜 선택 시 가격 조회 (체크인과 체크아웃이 모두 선택된 경우에만)
+  useEffect(() => {
+    if (!checkInDate || !checkOutDate || !accommodationId) {
+      setDailyPrice(null);
+      return;
+    }
+
+    const fetchPrice = async () => {
+      setPriceLoading(true);
+      try {
+        // TODO: 실제 API 엔드포인트로 변경 필요
+        // 예시: /api/accommodations/{id}/price?checkIn=2024-01-01&checkOut=2024-01-02
+        const checkInStr = checkInDate.toISOString().split("T")[0];
+        const checkOutStr = checkOutDate.toISOString().split("T")[0];
+
+        // 임시로 기본 가격 사용 (실제로는 API 호출)
+        // const response = await fetch(`/api/accommodations/${accommodationId}/price?checkIn=${checkInStr}&checkOut=${checkOutStr}`);
+        // const data = await response.json();
+        // setDailyPrice(data.dailyPrice);
+
+        // 임시 구현: 기본 가격 사용
+        setTimeout(() => {
+          setDailyPrice(accommodation?.price || 0);
+          setPriceLoading(false);
+        }, 500);
+      } catch (err) {
+        console.error("가격 조회 실패:", err);
+        setDailyPrice(accommodation?.price || 0);
+        setPriceLoading(false);
+      }
+    };
+
+    fetchPrice();
+  }, [checkInDate, checkOutDate, accommodationId, accommodation?.price]);
+
+  const handleDateRangeChange = (
+    range: { from?: Date; to?: Date } | undefined
+  ) => {
+    // 체크인과 체크아웃이 모두 선택된 경우에만 상태 업데이트
+    if (range?.from && range?.to) {
+      setCheckInDate(range.from);
+      setCheckOutDate(range.to);
+    } else {
+      // 날짜가 지워지거나 체크인만 선택된 경우 초기화
+      setCheckInDate(null);
+      setCheckOutDate(null);
+    }
+  };
+
+  // 숙박 일수 계산
+  const nights =
+    checkInDate && checkOutDate
+      ? differenceInDays(checkOutDate, checkInDate)
+      : 0;
+
+  // 총 가격 계산
+  const totalPrice = dailyPrice && nights > 0 ? dailyPrice * nights : 0;
 
   if (loading) {
     return (
@@ -429,15 +490,29 @@ function AccommodationDetailContent() {
               <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-semibold">
-                      ₩{accommodation.price.toLocaleString()}
-                    </span>
-                    <span className="text-gray-600">/박</span>
+                    {!checkInDate || !checkOutDate ? (
+                      <span className="text-lg text-gray-600">
+                        날짜를 선택해 요금 확인
+                      </span>
+                    ) : priceLoading ? (
+                      <span className="text-lg text-gray-600">
+                        가격 조회 중...
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-2xl font-semibold">
+                          ₩{dailyPrice?.toLocaleString()}
+                        </span>
+                        <span className="text-gray-600">/박</span>
+                      </>
+                    )}
                   </div>
                 </div>
 
                 <div className="space-y-4 mb-6">
-                  <AirbnbDateRangePicker />
+                  <AirbnbDateRangePicker
+                    onDateRangeChange={handleDateRangeChange}
+                  />
 
                   <div className="relative" ref={dropdownRef}>
                     {/* 요약 버튼 */}
@@ -591,24 +666,28 @@ function AccommodationDetailContent() {
                   예약 확정 전에는 요금이 청구되지 않습니다
                 </p>
 
-                {checkInDate && checkOutDate && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>
-                          ₩{accommodation.price.toLocaleString()} x 1박
-                        </span>
-                        <span>₩{accommodation.price.toLocaleString()}</span>
-                      </div>
+                {checkInDate &&
+                  checkOutDate &&
+                  dailyPrice !== null &&
+                  nights > 0 &&
+                  !priceLoading && (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>
+                            ₩{dailyPrice.toLocaleString()} x {nights}박
+                          </span>
+                          <span>₩{totalPrice.toLocaleString()}</span>
+                        </div>
 
-                      <hr className="my-2" />
-                      <div className="flex justify-between font-semibold">
-                        <span>총 합계</span>
-                        <span>₩{accommodation.price.toLocaleString()}</span>
+                        <hr className="my-2" />
+                        <div className="flex justify-between font-semibold">
+                          <span>총 합계</span>
+                          <span>₩{totalPrice.toLocaleString()}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           </div>
