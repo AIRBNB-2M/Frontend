@@ -44,17 +44,6 @@ export default function Header() {
     }
   };
 
-  const handleTestAPI = async () => {
-    try {
-      const res = await http.get("/test");
-      alert(JSON.stringify(res.data));
-    } catch (err: any) {
-      if (err?.forceLogout) {
-        alert(err.message || "인증이 만료되었습니다. 다시 로그인해주세요.");
-      }
-    }
-  };
-
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
       <div className="max-w-screen-2xl mx-auto px-6 py-4">
@@ -117,7 +106,7 @@ export default function Header() {
                         </div>
                       </Link>
                       <Link
-                        href="/wishlist"
+                        href="/wishlists"
                         className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setIsUserMenuOpen(false)}
                       >

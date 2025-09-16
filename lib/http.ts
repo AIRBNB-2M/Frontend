@@ -158,6 +158,24 @@ export async function fetchAccommodations(params?: Record<string, string>) {
   return res.data;
 }
 
+export async function addAccommodationToWishlist(
+  wishlistId: number,
+  accommodationId: number
+) {
+  return await http.post(`/api/wishlists/${wishlistId}/accommodations`, {
+    accommodationId,
+  });
+}
+
+export async function removeAccommodationFromWishlist(
+  wishlistId: number,
+  accommodationId: number
+) {
+  return await http.delete(
+    `/api/wishlists/${wishlistId}/accommodations/${accommodationId}`
+  );
+}
+
 export default http;
 
 // ----- internal helpers -----

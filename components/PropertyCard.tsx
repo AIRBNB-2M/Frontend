@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  addAccommodationToWishlist,
+  removeAccommodationFromWishlist,
+} from "@/lib/http";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -10,6 +14,8 @@ interface PropertyCardProps {
   location: string; // 지역명
   price: number;
   rating: number;
+  isInWishlist?: boolean;
+  wishlistId?: number | null;
 }
 
 export default function PropertyCard({
@@ -19,9 +25,14 @@ export default function PropertyCard({
   location,
   price,
   rating,
+  isInWishlist: initialLikedMe = false,
+  wishlistId: initialWishlistId = null,
 }: PropertyCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isLiked, setIsLiked] = useState(false);
+  const [isInWishlist, setIsInWishlist] = useState(initialLikedMe);
+  const [wishlistId, setWishlistId] = useState<number | null>(
+    initialWishlistId
+  );
 
   const nextImage = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -33,9 +44,38 @@ export default function PropertyCard({
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
-  const toggleLike = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsLiked(!isLiked);
+  const handleToggleLike = async () => {
+    try {
+      if (isInWishlist && wishlistId) {
+        // 찜 해제
+        const res = await removeAccommodationFromWishlist(
+          wishlistId,
+          Number(id)
+        );
+        if (res.status >= 200 && res.status < 300) {
+          setIsInWishlist(false);
+          setWishlistId(null);
+        } else {
+          alert("잠시 후 다시 시도해주세요.");
+        }
+      } else {
+        // 찜 추가
+        const defaultWishlistId = 1; // TODO: 서버에서 받아오기
+        const res = await addAccommodationToWishlist(
+          defaultWishlistId,
+          Number(id)
+        );
+        if (res.status >= 200 && res.status < 300) {
+          setIsInWishlist(true);
+          setWishlistId(defaultWishlistId);
+        } else {
+          alert("잠시 후 다시 시도해주세요.");
+        }
+      }
+    } catch (err: any) {
+      console.error("toggleLike 실패", err);
+      alert("잠시 후 다시 시도해주세요.");
+    }
   };
 
   return (
@@ -81,13 +121,13 @@ export default function PropertyCard({
 
         {/* 좋아요 버튼 */}
         <button
-          onClick={toggleLike}
+          onClick={handleToggleLike}
           className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center transition hover:bg-gray-100/80 rounded-full group/heart"
           style={{ opacity: 1 }}
         >
           <i
             className={`${
-              isLiked
+              isInWishlist
                 ? "ri-heart-fill text-red-500"
                 : "ri-heart-line text-black"
             } w-10 h-10 flex items-center justify-center transition-transform duration-200 group-hover/heart:scale-110`}
