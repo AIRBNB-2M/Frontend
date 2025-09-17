@@ -2,27 +2,19 @@
 
 import {
   addAccommodationToWishlist,
+  fetchWishlists,
   removeAccommodationFromWishlist,
 } from "@/lib/http";
 import http from "@/lib/http";
+import { useWishlistStore } from "@/lib/wishlistStore"; // 새로 추가한 전역 상태
+import {
+  WishlistCreateReqDto,
+  WishlistCreateResDto,
+  WishlistsResDto,
+} from "@/lib/wishlistTypes";
+import { ChevronRight, Heart, Plus, X } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-
-interface WishlistsResDto {
-  wishlistId: number;
-  name: string;
-  thumbnailUrl: string;
-  savedAccommodations: number;
-}
-
-interface WishlistCreateReqDto {
-  wishlistName: string;
-}
-
-interface WishlistCreateResDto {
-  wishlistId: number;
-  wishlistName: string;
-}
+import { useState, useEffect } from "react";
 
 interface PropertyCardProps {
   id: string;
@@ -31,8 +23,9 @@ interface PropertyCardProps {
   location: string;
   price: number;
   rating: number;
-  isInWishlist?: boolean;
+  isInWishlist?: boolean; // 초기값으로만 사용, 이후 전역 상태 우선
   wishlistId?: number | null;
+  wishlistName?: string;
 }
 
 export default function PropertyCard({
@@ -44,12 +37,21 @@ export default function PropertyCard({
   rating,
   isInWishlist: initialLikedMe = false,
   wishlistId: initialWishlistId = null,
+  wishlistName,
 }: PropertyCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isInWishlist, setIsInWishlist] = useState(initialLikedMe);
-  const [wishlistId, setWishlistId] = useState<number | null>(
-    initialWishlistId
-  );
+
+  // 전역 상태 사용
+  const {
+    isInWishlist: isInWishlistGlobal,
+    getWishlistId,
+    addToWishlist,
+    removeFromWishlist,
+  } = useWishlistStore();
+
+  // 전역 상태 우선, 없으면 props 값 사용
+  const isInWishlist = isInWishlistGlobal(id) || initialLikedMe;
+  const wishlistId = getWishlistId(id) || initialWishlistId;
 
   // 위시리스트 선택 모달 관련 상태
   const [showWishlistModal, setShowWishlistModal] = useState(false);
@@ -63,6 +65,19 @@ export default function PropertyCard({
   const [isCreatingWishlist, setIsCreatingWishlist] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // 초기 로드 시 전역 상태가 비어있으면 props 값으로 초기화
+  useEffect(() => {
+    if (initialLikedMe && initialWishlistId && !isInWishlistGlobal(id)) {
+      addToWishlist(id, initialWishlistId, wishlistName || "");
+    }
+  }, [
+    id,
+    initialLikedMe,
+    initialWishlistId,
+    addToWishlist,
+    isInWishlistGlobal,
+  ]);
+
   const nextImage = (e: React.MouseEvent) => {
     e.preventDefault();
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
@@ -74,12 +89,12 @@ export default function PropertyCard({
   };
 
   // 위시리스트 목록 가져오기
-  const fetchWishlists = async () => {
+  const loadWishlists = async () => {
     try {
       setLoadingWishlists(true);
       setWishlistError(null);
-      const response = await http.get("/api/wishlists");
-      setWishlists(response.data);
+      const response = await fetchWishlists();
+      setWishlists(response);
     } catch (err: any) {
       console.error("위시리스트 조회 오류:", err);
       setWishlistError("위시리스트를 불러오지 못했습니다.");
@@ -94,12 +109,11 @@ export default function PropertyCard({
 
     try {
       if (isInWishlist && wishlistId) {
-        // 찜 해제 (기존 로직 유지)
+        // 찜 해제
         await removeAccommodationFromWishlist(wishlistId, Number(id));
-        setIsInWishlist(false);
-        setWishlistId(null);
+        removeFromWishlist(id); // 전역 상태 업데이트
       } else {
-        // 찜 추가 - 위시리스트 선택 모달 열기 (기존 로직 유지)
+        // 찜 추가 - 위시리스트 선택 모달 열기
         setShowWishlistModal(true);
         await fetchWishlists();
       }
@@ -113,8 +127,14 @@ export default function PropertyCard({
   const handleSelectWishlist = async (selectedWishlistId: number) => {
     try {
       await addAccommodationToWishlist(selectedWishlistId, Number(id));
-      setIsInWishlist(true);
-      setWishlistId(selectedWishlistId);
+      // 선택한 위시리스트 이름 찾기
+      const wishlist = wishlists.find(
+        (w) => w.wishlistId === selectedWishlistId
+      );
+
+      if (wishlist) {
+        addToWishlist(id, selectedWishlistId, wishlist.name);
+      }
       setShowWishlistModal(false);
     } catch (err: any) {
       console.error("위시리스트 추가 실패", err);
@@ -270,7 +290,7 @@ export default function PropertyCard({
                 onClick={handleCloseModal}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
               >
-                <i className="ri-close-line w-5 h-5 text-gray-500"></i>
+                <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
 
@@ -287,7 +307,7 @@ export default function PropertyCard({
               <div className="text-center py-8">
                 <p className="text-red-600 mb-4">{wishlistError}</p>
                 <button
-                  onClick={fetchWishlists}
+                  onClick={loadWishlists}
                   className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition-colors"
                 >
                   다시 시도
@@ -313,7 +333,7 @@ export default function PropertyCard({
                           저장된 숙소 {wishlist.savedAccommodations}개
                         </p>
                       </div>
-                      <i className="ri-arrow-right-s-line text-gray-400"></i>
+                      <ChevronRight className="text-gray-400 w-4 h-4" />
                     </div>
                   </button>
                 ))}
@@ -326,7 +346,7 @@ export default function PropertyCard({
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                        <i className="ri-add-line text-gray-600"></i>
+                        <Plus className="text-gray-600 w-4 h-4" />
                       </div>
                       <span className="font-medium text-gray-600">
                         새 위시리스트 만들기
@@ -404,7 +424,7 @@ export default function PropertyCard({
                 {wishlists.length === 0 && !showCreateForm && (
                   <div className="text-center py-8">
                     <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <i className="ri-heart-line text-2xl text-gray-400"></i>
+                      <Heart className="w-8 h-8 text-gray-400" />
                     </div>
                     <p className="text-gray-600 mb-4">
                       아직 위시리스트가 없습니다

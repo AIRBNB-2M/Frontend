@@ -7,6 +7,7 @@ import RefreshAccessTokenOnMount from "@/components/RefreshAccessTokenOnMount";
 import { useAuthStore } from "@/lib/authStore";
 import { createWishlist, deleteWishlist, fetchWishlists } from "@/lib/http";
 import { WishlistCreateResDto, WishlistsResDto } from "@/lib/wishlistTypes";
+import { Trash } from "lucide-react";
 
 export default function WishlistsPage() {
   const [wishlists, setWishlists] = useState<WishlistsResDto[]>([]);
@@ -241,7 +242,7 @@ export default function WishlistsPage() {
                     className="absolute top-2 right-2 z-10 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-sm hover:shadow-md"
                     title="위시리스트 삭제"
                   >
-                    <i className="ri-delete-bin-line text-gray-600 hover:text-red-600 w-4 h-4"></i>
+                    <Trash className="w-4 h-4 text-gray-600 hover:text-red-600 cursor-pointer" />
                   </button>
 
                   <div

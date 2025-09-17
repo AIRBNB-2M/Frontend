@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import PropertyCard from "@/components/PropertyCard";
 import { useState, useEffect } from "react";
 import { fetchAccommodations } from "@/lib/http";
+import { useWishlistStore } from "@/lib/wishlistStore";
 
 function HomeContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -15,7 +16,7 @@ function HomeContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { syncWithServerData } = useWishlistStore();
 
   // areaCode로 숙소 목록 요청
   useEffect(() => {
@@ -24,13 +25,15 @@ function HomeContent() {
     fetchAccommodations()
       .then((data) => {
         setAccommodations(data);
+        // 서버 데이터와 위시리스트 전역 상태 동기화
+        syncWithServerData(data);
         setLoading(false);
       })
       .catch((err) => {
         setError(err.message || "숙소 정보를 불러오지 못했습니다.");
         setLoading(false);
       });
-  }, []);
+  }, [syncWithServerData]);
 
   // areaName별로 그룹핑, 카테고리 필터 적용
   const groupedAreas = (accommodations as any[])

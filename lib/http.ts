@@ -13,6 +13,28 @@ const http = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+// 위시리스트 관련 API 경로들
+const REQUIRED_AUTH_ENDPOINTS = ["/api/wishlists", "/api/wishlists/"];
+
+// 경로가 위시리스트 관련 API인지 확인하는 함수
+function isRequiredAuthEndpoint(url: string): boolean {
+  return REQUIRED_AUTH_ENDPOINTS.some((endpoint) => url.includes(endpoint));
+}
+
+// 클라이언트 사이드에서만 라우팅 처리
+function redirectToSignup() {
+  if (typeof window !== "undefined") {
+    // Next.js router를 사용할 수 없는 상황을 대비해 window.location 사용
+    window.location.href = "/signup";
+  }
+}
+
+function redirectToLogin() {
+  if (typeof window !== "undefined") {
+    window.location.href = "/login";
+  }
+}
+
 http.interceptors.request.use((config) => {
   try {
     const token = useAuthStore.getState().accessToken;
@@ -43,6 +65,23 @@ http.interceptors.response.use(
     const status = error.response?.status;
     const errorMessage =
       (error.response?.data as any)?.message || error.message || "";
+
+    const requestUrl = originalRequest?.url || "";
+
+    if (status === 401 || status === 403) {
+      const { accessToken, clearAccessToken } = useAuthStore.getState();
+
+      // 위시리스트 관련 API이고 토큰이 없는 경우 -> 회원가입 페이지로
+      if (isRequiredAuthEndpoint(requestUrl) && !accessToken) {
+        clearAccessToken();
+        const customError = new Error(
+          "로그인이 필요한 서비스입니다. 회원가입을 진행해주세요."
+        ) as any;
+        customError.redirectToSignup = true;
+        redirectToLogin();
+        return Promise.reject(customError);
+      }
+    }
 
     // 401이 아니거나, originalRequest가 없으면 그냥 에러 반환
     if (status !== 401 || !originalRequest) {
