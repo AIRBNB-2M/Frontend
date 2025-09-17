@@ -40,7 +40,7 @@ export default function Header() {
     } finally {
       clearAccessToken();
       setIsUserMenuOpen(false);
-      router.push("/");
+      window.location.href = "/";
     }
   };
 
@@ -49,12 +49,12 @@ export default function Header() {
       <div className="max-w-screen-2xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           {/* 로고 */}
-          <Link href="/" className="flex items-center">
+          <a href="/" className="flex items-center">
             <div className="text-2xl text-pink-500 font-bold">
               <i className="ri-home-heart-fill w-8 h-8 flex items-center justify-center"></i>
             </div>
             <span className="ml-2 text-xl font-bold text-pink-500">Airbnb</span>
-          </Link>
+          </a>
 
           {/* 사용자 메뉴 */}
           <div className="relative" ref={menuRef}>

@@ -23,7 +23,7 @@ export default function LoginPage() {
   // 이미 로그인된 경우 메인 페이지로 리다이렉트
   useEffect(() => {
     if (accessToken) {
-      router.push("/");
+      window.location.href = "/";
     }
   }, [accessToken, router]);
 
@@ -50,7 +50,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       await http.post("/api/auth/login", { email, password });
-      router.push("/");
+      window.location.href = "/";
     } catch (err: any) {
       setSubmitError(err?.message || "로그인 요청 중 오류가 발생했습니다.");
     } finally {

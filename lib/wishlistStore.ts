@@ -13,6 +13,9 @@ interface WishlistState {
   // 위시리스트에 저장된 숙소들 (accommodationId -> WishlistItem 매핑)
   wishlistItems: Record<string, WishlistItem>;
 
+  // 서버와 동기화 완료 여부
+  isServerSynced: boolean;
+
   // 위시리스트에 숙소 추가
   addToWishlist: (
     accommodationId: string,
@@ -46,6 +49,7 @@ export const useWishlistStore = create<WishlistState>()(
   persist(
     (set, get) => ({
       wishlistItems: {},
+      isServerSynced: false, // 초기값 추가
 
       addToWishlist: (
         accommodationId: string,
@@ -91,7 +95,7 @@ export const useWishlistStore = create<WishlistState>()(
       },
 
       clearAll: () => {
-        set({ wishlistItems: {} });
+        set({ wishlistItems: {}, isServerSynced: false });
       },
 
       syncWithServerData: (accommodations: any[]) => {
@@ -103,19 +107,17 @@ export const useWishlistStore = create<WishlistState>()(
             if (area.accommodations) {
               area.accommodations.forEach((acc: any) => {
                 const accommodationId = acc.accommodationId?.toString();
-                if (accommodationId) {
-                  if (acc.isInWishlist || acc.likedMe) {
-                    // 서버에서 위시리스트에 있다고 하면 로컬 상태도 업데이트
-                    if (!newItems[accommodationId]) {
-                      newItems[accommodationId] = {
-                        accommodationId,
-                        wishlistId: acc.wishlistId || 1, // 기본값, 실제로는 서버에서 받아와야 함
-                        wishlistName: "내 위시리스트", // 기본값
-                        addedAt: Date.now(),
-                      };
-                    }
-                  } else {
-                    // 서버에서 위시리스트에 없다고 하면 로컬에서도 제거
+                if (accommodationId && typeof acc.isInWishlist === "boolean") {
+                  // 서버에서 명시적으로 위시리스트 정보를 전달한 경우만 처리
+                  if (acc.isInWishlist && acc.wishlistId) {
+                    newItems[accommodationId] = {
+                      accommodationId,
+                      wishlistId: acc.wishlistId,
+                      wishlistName: acc.wishlistName || "내 위시리스트",
+                      addedAt: Date.now(),
+                    };
+                  } else if (!acc.isInWishlist) {
+                    // 서버에서 명시적으로 false라고 한 경우만 제거
                     delete newItems[accommodationId];
                   }
                 }
@@ -123,7 +125,10 @@ export const useWishlistStore = create<WishlistState>()(
             }
           });
 
-          return { wishlistItems: newItems };
+          return {
+            wishlistItems: newItems,
+            isServerSynced: true, // 동기화 완료 표시
+          };
         });
       },
     }),

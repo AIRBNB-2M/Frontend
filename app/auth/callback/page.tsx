@@ -68,7 +68,7 @@ function AuthCallbackContent() {
         if (tokenStored) {
           // 토큰이 저장되었으면 메인 페이지로 이동
           console.log("OAuth 인증 성공! 메인 페이지로 이동합니다.");
-          router.push("/");
+          window.location.href = "/";
         } else {
           // 토큰이 없으면 오류 처리
           console.error("OAuth 인증 토큰을 받지 못했습니다.");

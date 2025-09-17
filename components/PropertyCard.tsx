@@ -2,6 +2,7 @@
 
 import {
   addAccommodationToWishlist,
+  createWishlist,
   fetchWishlists,
   removeAccommodationFromWishlist,
 } from "@/lib/http";
@@ -12,8 +13,9 @@ import {
   WishlistCreateResDto,
   WishlistsResDto,
 } from "@/lib/wishlistTypes";
-import { ChevronRight, Heart, Plus, X } from "lucide-react";
+import { ChevronRight, Heart, Plus, Star, X } from "lucide-react";
 import Link from "next/link";
+import router from "next/router";
 import { useState, useEffect } from "react";
 
 interface PropertyCardProps {
@@ -47,10 +49,14 @@ export default function PropertyCard({
     getWishlistId,
     addToWishlist,
     removeFromWishlist,
+    isServerSynced,
   } = useWishlistStore();
 
-  // 전역 상태 우선, 없으면 props 값 사용
-  const isInWishlist = isInWishlistGlobal(id) || initialLikedMe;
+  // 서버 동기화 상태에 따른 위시리스트 상태 결정
+  const isInWishlist = isServerSynced
+    ? isInWishlistGlobal(id) // 서버 동기화 완료 후에는 전역 상태 우선
+    : isInWishlistGlobal(id) || initialLikedMe; // 동기화 전에는 기존 로직 사용
+
   const wishlistId = getWishlistId(id) || initialWishlistId;
 
   // 위시리스트 선택 모달 관련 상태
@@ -65,17 +71,25 @@ export default function PropertyCard({
   const [isCreatingWishlist, setIsCreatingWishlist] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // 초기 로드 시 전역 상태가 비어있으면 props 값으로 초기화
+  // 초기 로드 시 서버 데이터로 전역 상태 동기화
   useEffect(() => {
-    if (initialLikedMe && initialWishlistId && !isInWishlistGlobal(id)) {
-      addToWishlist(id, initialWishlistId, wishlistName || "");
+    // 서버에서 명시적으로 위시리스트 상태를 전달한 경우만 동기화
+    if (typeof initialLikedMe === "boolean") {
+      if (initialLikedMe && initialWishlistId && !isInWishlistGlobal(id)) {
+        addToWishlist(id, initialWishlistId, wishlistName || "내 위시리스트");
+      } else if (!initialLikedMe && isInWishlistGlobal(id)) {
+        // 서버에서 false라고 명시했는데 로컬에 있으면 제거
+        removeFromWishlist(id);
+      }
     }
   }, [
     id,
     initialLikedMe,
     initialWishlistId,
     addToWishlist,
+    removeFromWishlist,
     isInWishlistGlobal,
+    wishlistName,
   ]);
 
   const nextImage = (e: React.MouseEvent) => {
@@ -113,13 +127,25 @@ export default function PropertyCard({
         await removeAccommodationFromWishlist(wishlistId, Number(id));
         removeFromWishlist(id); // 전역 상태 업데이트
       } else {
-        // 찜 추가 - 위시리스트 선택 모달 열기
+        // 찜 추가 전에 위시리스트 가져오기
+        let response;
+        try {
+          response = await fetchWishlists();
+        } catch (err: any) {
+          if (err?.response?.status === 403) {
+            // 로그인 안 된 경우
+            router.push("/login"); // 로그인 페이지로 이동
+            return;
+          }
+          throw err;
+        }
+
+        // 로그인 되어 있고 정상적으로 데이터 가져왔으면 모달 열기
+        setWishlists(response);
         setShowWishlistModal(true);
-        await fetchWishlists();
       }
     } catch (err: any) {
       console.error("toggleLike 실패", err);
-      alert("잠시 후 다시 시도해주세요.");
     }
   };
 
@@ -160,19 +186,12 @@ export default function PropertyCard({
       setIsCreatingWishlist(true);
       setCreateError(null);
 
-      const reqDto: WishlistCreateReqDto = {
-        wishlistName: newWishlistName.trim(),
-      };
-
-      const response = await http.post<WishlistCreateResDto>(
-        "/api/wishlists",
-        reqDto
-      );
+      const response = await createWishlist(newWishlistName.trim());
 
       // 생성된 위시리스트를 목록에 추가
       const newWishlist: WishlistsResDto = {
-        wishlistId: response.data.wishlistId,
-        name: response.data.wishlistName,
+        wishlistId: response.wishlistId,
+        name: response.wishlistName,
         thumbnailUrl: "",
         savedAccommodations: 0,
       };
@@ -180,7 +199,7 @@ export default function PropertyCard({
       setWishlists((prev) => [newWishlist, ...prev]);
 
       // 생성된 위시리스트에 현재 숙소 추가
-      await handleSelectWishlist(response.data.wishlistId);
+      await handleSelectWishlist(response.wishlistId);
 
       // 폼 초기화
       setNewWishlistName("");
@@ -264,7 +283,7 @@ export default function PropertyCard({
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-gray-900 truncate">{title}</h3>
             <div className="flex items-center gap-1 ml-2">
-              <i className="ri-star-fill w-3 h-3 flex items-center justify-center text-black"></i>
+              <Star className="w-3 h-3 text-black fill-black" />
               <span className="text-sm text-gray-900">{rating}</span>
             </div>
           </div>
