@@ -197,7 +197,6 @@ export async function fetchAccommodations(params?: Record<string, string>) {
     url = `/api/accommodations/search?${queryParams.toString()}`;
   }
 
-  console.log("최종 요청 URL:", url); // 디버깅용
   const res = await http.get(url);
   return res.data;
 }

@@ -6,17 +6,11 @@ import {
   fetchWishlists,
   removeAccommodationFromWishlist,
 } from "@/lib/http";
-import http from "@/lib/http";
-import { useWishlistStore } from "@/lib/wishlistStore"; // 새로 추가한 전역 상태
-import {
-  WishlistCreateReqDto,
-  WishlistCreateResDto,
-  WishlistsResDto,
-} from "@/lib/wishlistTypes";
+import { WishlistsResDto } from "@/lib/wishlistTypes";
 import { ChevronRight, Heart, Plus, Star, X } from "lucide-react";
 import Link from "next/link";
-import router from "next/router";
-import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface PropertyCardProps {
   id: string;
@@ -25,9 +19,10 @@ interface PropertyCardProps {
   location: string;
   price: number;
   rating: number;
-  isInWishlist?: boolean; // 초기값으로만 사용, 이후 전역 상태 우선
+  isInWishlist?: boolean;
   wishlistId?: number | null;
   wishlistName?: string;
+  onWishlistChange?: () => void; // 위시리스트 변경 시 부모 컴포넌트에 알림
 }
 
 export default function PropertyCard({
@@ -37,60 +32,30 @@ export default function PropertyCard({
   location,
   price,
   rating,
-  isInWishlist: initialLikedMe = false,
-  wishlistId: initialWishlistId = null,
+  isInWishlist = false,
+  wishlistId = null,
   wishlistName,
+  onWishlistChange, // 부모에서 전달받는 콜백
 }: PropertyCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-
-  // 전역 상태 사용
-  const {
-    isInWishlist: isInWishlistGlobal,
-    getWishlistId,
-    addToWishlist,
-    removeFromWishlist,
-    isServerSynced,
-  } = useWishlistStore();
-
-  // 서버 동기화 상태에 따른 위시리스트 상태 결정
-  const isInWishlist = isServerSynced
-    ? isInWishlistGlobal(id) // 서버 동기화 완료 후에는 전역 상태 우선
-    : isInWishlistGlobal(id) || initialLikedMe; // 동기화 전에는 기존 로직 사용
-
-  const wishlistId = getWishlistId(id) || initialWishlistId;
+  const [localIsInWishlist, setLocalIsInWishlist] = useState(isInWishlist); // 로컬 상태로만 관리
+  const [localWishlistId, setLocalWishlistId] = useState(wishlistId);
+  const router = useRouter();
 
   // 위시리스트 선택 모달 관련 상태
   const [showWishlistModal, setShowWishlistModal] = useState(false);
   const [wishlists, setWishlists] = useState<WishlistsResDto[]>([]);
   const [loadingWishlists, setLoadingWishlists] = useState(false);
   const [wishlistError, setWishlistError] = useState<string | null>(null);
-
-  // 새 위시리스트 생성 관련 상태
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newWishlistName, setNewWishlistName] = useState("");
   const [isCreatingWishlist, setIsCreatingWishlist] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // 초기 로드 시 서버 데이터로 전역 상태 동기화
   useEffect(() => {
-    // 서버에서 명시적으로 위시리스트 상태를 전달한 경우만 동기화
-    if (typeof initialLikedMe === "boolean") {
-      if (initialLikedMe && initialWishlistId && !isInWishlistGlobal(id)) {
-        addToWishlist(id, initialWishlistId, wishlistName || "내 위시리스트");
-      } else if (!initialLikedMe && isInWishlistGlobal(id)) {
-        // 서버에서 false라고 명시했는데 로컬에 있으면 제거
-        removeFromWishlist(id);
-      }
-    }
-  }, [
-    id,
-    initialLikedMe,
-    initialWishlistId,
-    addToWishlist,
-    removeFromWishlist,
-    isInWishlistGlobal,
-    wishlistName,
-  ]);
+    setLocalIsInWishlist(isInWishlist);
+    setLocalWishlistId(wishlistId ?? null);
+  }, [isInWishlist, wishlistId]);
 
   const nextImage = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -102,83 +67,55 @@ export default function PropertyCard({
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
-  // 위시리스트 목록 가져오기
-  const loadWishlists = async () => {
-    try {
-      setLoadingWishlists(true);
-      setWishlistError(null);
-      const response = await fetchWishlists();
-      setWishlists(response);
-    } catch (err: any) {
-      console.error("위시리스트 조회 오류:", err);
-      setWishlistError("위시리스트를 불러오지 못했습니다.");
-    } finally {
-      setLoadingWishlists(false);
-    }
-  };
-
   const handleToggleLike = async (e: React.MouseEvent) => {
-    e.preventDefault(); // 링크 이동 방지
-    e.stopPropagation(); // 이벤트 버블링 방지
+    e.preventDefault();
+    e.stopPropagation();
 
     try {
-      if (isInWishlist && wishlistId) {
+      if (localIsInWishlist && localWishlistId) {
         // 찜 해제
-        await removeAccommodationFromWishlist(wishlistId, Number(id));
-        removeFromWishlist(id); // 전역 상태 업데이트
+        await removeAccommodationFromWishlist(localWishlistId, Number(id));
+        setLocalIsInWishlist(false);
+        setLocalWishlistId(null);
+        onWishlistChange?.(); // 부모 컴포넌트에 변경 알림
       } else {
-        // 찜 추가 전에 위시리스트 가져오기
-        let response;
+        // 찜 추가 - 위시리스트 목록 가져오기
         try {
-          response = await fetchWishlists();
+          const response = await fetchWishlists();
+          setWishlists(response);
+          setShowWishlistModal(true);
         } catch (err: any) {
-          if (err?.response?.status === 403) {
-            // 로그인 안 된 경우
-            router.push("/login"); // 로그인 페이지로 이동
+          if (err?.response?.status === 403 || err?.response?.status === 401) {
+            router.push("/login");
             return;
           }
           throw err;
         }
-
-        // 로그인 되어 있고 정상적으로 데이터 가져왔으면 모달 열기
-        setWishlists(response);
-        setShowWishlistModal(true);
       }
     } catch (err: any) {
-      console.error("toggleLike 실패", err);
+      console.error("위시리스트 토글 실패", err);
     }
   };
 
-  // 위시리스트 선택 핸들러
   const handleSelectWishlist = async (selectedWishlistId: number) => {
     try {
       await addAccommodationToWishlist(selectedWishlistId, Number(id));
-      // 선택한 위시리스트 이름 찾기
-      const wishlist = wishlists.find(
-        (w) => w.wishlistId === selectedWishlistId
-      );
 
-      if (wishlist) {
-        addToWishlist(id, selectedWishlistId, wishlist.name);
-      }
+      setLocalIsInWishlist(true);
+      setLocalWishlistId(selectedWishlistId);
       setShowWishlistModal(false);
+      onWishlistChange?.(); // 부모 컴포넌트에 변경 알림
     } catch (err: any) {
       console.error("위시리스트 추가 실패", err);
       alert("잠시 후 다시 시도해주세요.");
     }
   };
 
-  // 새 위시리스트 생성 핸들러
   const handleCreateWishlist = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!newWishlistName.trim()) {
       setCreateError("위시리스트 이름을 입력해주세요.");
-      return;
-    }
-
-    if (newWishlistName.trim().length > 50) {
-      setCreateError("위시리스트 이름은 50자 이내로 입력해주세요.");
       return;
     }
 
@@ -188,7 +125,6 @@ export default function PropertyCard({
 
       const response = await createWishlist(newWishlistName.trim());
 
-      // 생성된 위시리스트를 목록에 추가
       const newWishlist: WishlistsResDto = {
         wishlistId: response.wishlistId,
         name: response.wishlistName,
@@ -197,11 +133,8 @@ export default function PropertyCard({
       };
 
       setWishlists((prev) => [newWishlist, ...prev]);
-
-      // 생성된 위시리스트에 현재 숙소 추가
       await handleSelectWishlist(response.wishlistId);
 
-      // 폼 초기화
       setNewWishlistName("");
       setShowCreateForm(false);
     } catch (err: any) {
@@ -212,7 +145,6 @@ export default function PropertyCard({
     }
   };
 
-  // 모달 닫기
   const handleCloseModal = () => {
     setShowWishlistModal(false);
     setShowCreateForm(false);
@@ -263,15 +195,14 @@ export default function PropertyCard({
             </>
           )}
 
-          {/* 좋아요 버튼 */}
+          {/* 하트 버튼 */}
           <button
             onClick={handleToggleLike}
             className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center transition hover:bg-gray-100/80 rounded-full group/heart"
-            style={{ opacity: 1 }}
           >
             <i
               className={`${
-                isInWishlist
+                localIsInWishlist
                   ? "ri-heart-fill text-red-500"
                   : "ri-heart-line text-black"
               } w-10 h-10 flex items-center justify-center transition-transform duration-200 group-hover/heart:scale-110`}
@@ -297,7 +228,7 @@ export default function PropertyCard({
         </div>
       </Link>
 
-      {/* 위시리스트 선택 모달 */}
+      {/* 위시리스트 선택 모달 - 기존과 동일 */}
       {showWishlistModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-auto max-h-[80vh] overflow-y-auto">
@@ -313,151 +244,118 @@ export default function PropertyCard({
               </button>
             </div>
 
-            {/* 로딩 상태 */}
-            {loadingWishlists && (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500 mx-auto mb-3"></div>
-                <p className="text-gray-600">위시리스트를 불러오는 중...</p>
-              </div>
-            )}
-
-            {/* 에러 상태 */}
-            {wishlistError && !loadingWishlists && (
-              <div className="text-center py-8">
-                <p className="text-red-600 mb-4">{wishlistError}</p>
+            <div className="space-y-3">
+              {wishlists.map((wishlist) => (
                 <button
-                  onClick={loadWishlists}
-                  className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition-colors"
+                  key={wishlist.wishlistId}
+                  onClick={() => handleSelectWishlist(wishlist.wishlistId)}
+                  className="w-full p-3 text-left rounded-lg border border-gray-200 hover:border-pink-300 hover:bg-pink-50 transition-colors"
                 >
-                  다시 시도
-                </button>
-              </div>
-            )}
-
-            {/* 위시리스트 목록 */}
-            {!loadingWishlists && !wishlistError && (
-              <div className="space-y-3">
-                {wishlists.map((wishlist) => (
-                  <button
-                    key={wishlist.wishlistId}
-                    onClick={() => handleSelectWishlist(wishlist.wishlistId)}
-                    className="w-full p-3 text-left rounded-lg border border-gray-200 hover:border-pink-300 hover:bg-pink-50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          {wishlist.name}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          저장된 숙소 {wishlist.savedAccommodations}개
-                        </p>
-                      </div>
-                      <ChevronRight className="text-gray-400 w-4 h-4" />
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium text-gray-900">
+                        {wishlist.name}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        저장된 숙소 {wishlist.savedAccommodations}개
+                      </p>
                     </div>
-                  </button>
-                ))}
+                    <ChevronRight className="text-gray-400 w-4 h-4" />
+                  </div>
+                </button>
+              ))}
 
-                {/* 새 위시리스트 만들기 버튼 */}
-                {!showCreateForm && (
+              {/* 새 위시리스트 생성 폼 등 - 기존과 동일 */}
+              {!showCreateForm && (
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="w-full p-3 text-left rounded-lg border-2 border-dashed border-gray-300 hover:border-pink-300 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                      <Plus className="text-gray-600 w-4 h-4" />
+                    </div>
+                    <span className="font-medium text-gray-600">
+                      새 위시리스트 만들기
+                    </span>
+                  </div>
+                </button>
+              )}
+
+              {showCreateForm && (
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <form onSubmit={handleCreateWishlist}>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        새 위시리스트 이름
+                      </label>
+                      <input
+                        type="text"
+                        value={newWishlistName}
+                        onChange={(e) => setNewWishlistName(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                        placeholder="예: 여름 휴가지"
+                        maxLength={50}
+                        disabled={isCreatingWishlist}
+                        autoFocus
+                      />
+                    </div>
+
+                    {createError && (
+                      <div className="mb-4 text-sm text-red-600 bg-red-50 p-2 rounded">
+                        {createError}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCreateForm(false);
+                          setNewWishlistName("");
+                          setCreateError(null);
+                        }}
+                        disabled={isCreatingWishlist}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+                      >
+                        취소
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isCreatingWishlist || !newWishlistName.trim()}
+                        className="flex-1 bg-pink-500 text-white px-3 py-2 rounded-lg hover:bg-pink-600 transition-colors text-sm disabled:opacity-50 flex items-center justify-center gap-1"
+                      >
+                        {isCreatingWishlist ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                            생성 중...
+                          </>
+                        ) : (
+                          "만들기"
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {wishlists.length === 0 && !showCreateForm && (
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Heart className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-gray-600 mb-4">
+                    아직 위시리스트가 없습니다
+                  </p>
                   <button
                     onClick={() => setShowCreateForm(true)}
-                    className="w-full p-3 text-left rounded-lg border-2 border-dashed border-gray-300 hover:border-pink-300 transition-colors"
+                    className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition-colors text-sm"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                        <Plus className="text-gray-600 w-4 h-4" />
-                      </div>
-                      <span className="font-medium text-gray-600">
-                        새 위시리스트 만들기
-                      </span>
-                    </div>
+                    첫 위시리스트 만들기
                   </button>
-                )}
-
-                {/* 새 위시리스트 생성 폼 */}
-                {showCreateForm && (
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <form onSubmit={handleCreateWishlist}>
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          새 위시리스트 이름
-                        </label>
-                        <input
-                          type="text"
-                          value={newWishlistName}
-                          onChange={(e) => setNewWishlistName(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                          placeholder="예: 여름 휴가지"
-                          maxLength={50}
-                          disabled={isCreatingWishlist}
-                          autoFocus
-                        />
-                        <div className="flex justify-between items-center mt-1">
-                          <span className="text-xs text-gray-500">
-                            {newWishlistName.length}/50
-                          </span>
-                        </div>
-                      </div>
-
-                      {createError && (
-                        <div className="mb-4 text-sm text-red-600 bg-red-50 p-2 rounded">
-                          {createError}
-                        </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowCreateForm(false);
-                            setNewWishlistName("");
-                            setCreateError(null);
-                          }}
-                          disabled={isCreatingWishlist}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
-                        >
-                          취소
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={
-                            isCreatingWishlist || !newWishlistName.trim()
-                          }
-                          className="flex-1 bg-pink-500 text-white px-3 py-2 rounded-lg hover:bg-pink-600 transition-colors text-sm disabled:opacity-50 flex items-center justify-center gap-1"
-                        >
-                          {isCreatingWishlist ? (
-                            <>
-                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                              생성 중...
-                            </>
-                          ) : (
-                            "만들기"
-                          )}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                )}
-
-                {/* 빈 상태 */}
-                {wishlists.length === 0 && !showCreateForm && (
-                  <div className="text-center py-8">
-                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <Heart className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <p className="text-gray-600 mb-4">
-                      아직 위시리스트가 없습니다
-                    </p>
-                    <button
-                      onClick={() => setShowCreateForm(true)}
-                      className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition-colors text-sm"
-                    >
-                      첫 위시리스트 만들기
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

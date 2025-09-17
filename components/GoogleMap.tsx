@@ -18,7 +18,7 @@ export default function AccommodationMap({ lat, lng }: Props) {
     <GoogleMap
       mapContainerStyle={{
         width: "100%",
-        height: "200px",
+        height: "550px",
         borderRadius: "12px",
       }}
       center={{ lat, lng }}

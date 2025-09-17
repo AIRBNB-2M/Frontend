@@ -7,8 +7,9 @@ import PropertyCard from "@/components/PropertyCard";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { fetchAccommodations } from "@/lib/http";
+import { useAuthStore } from "@/lib/authStore";
 
-interface FilteredAccListRedDto {
+interface FilteredAccListResDto {
   category: string;
   accommodationId: number;
   title: string;
@@ -16,11 +17,12 @@ interface FilteredAccListRedDto {
   avgRate: number;
   avgCount: number;
   imageUrls: string[];
-  likedMe: boolean;
+  isInWishlist: boolean;
+  wishlistId: number | null;
 }
 
 interface PageResponseDto {
-  contents: FilteredAccListRedDto[];
+  contents: FilteredAccListResDto[];
   pageNumList: number[];
   hasPrev: boolean;
   hasNext: boolean;
@@ -39,6 +41,7 @@ function AccommodationsContent() {
   const [pageData, setPageData] = useState<PageResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const accessToken = useAuthStore((s) => s.accessToken);
 
   useEffect(() => {
     setLoading(true);
@@ -52,7 +55,6 @@ function AccommodationsContent() {
 
     fetchAccommodations(params)
       .then((data: PageResponseDto) => {
-        console.log("API 응답 데이터:", data);
         setPageData(data);
         setLoading(false);
       })
@@ -61,7 +63,7 @@ function AccommodationsContent() {
         setError(err.message || "숙소 정보를 불러오지 못했습니다.");
         setLoading(false);
       });
-  }, [searchParams]);
+  }, [searchParams, accessToken]);
 
   // 카테고리 필터 적용
   const filteredContents =
@@ -78,7 +80,9 @@ function AccommodationsContent() {
     location: "", // 지역 정보가 없으므로 빈 문자열
     price: acc.price,
     rating: acc.avgRate,
-    isLiked: acc.likedMe,
+    isInWishlist: acc.isInWishlist, // ✅ 올바른 prop 이름
+    wishlistId: acc.wishlistId, // ✅ 서버에서 받은 wishlistId 전달
+    wishlistName: "내 위시리스트", // ✅ 기본값 (실제로는 서버에서 제공해야 함)
   }));
 
   // 페이지 변경 핸들러 - 기존 검색 조건 유지

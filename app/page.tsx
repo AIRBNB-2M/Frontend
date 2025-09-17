@@ -4,11 +4,11 @@ import Header from "@/components/Header";
 import SearchHeader from "@/components/SearchHeader";
 import CategoryFilter from "@/components/CategoryFilter";
 import { useRef, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import PropertyCard from "@/components/PropertyCard";
 import { useState, useEffect } from "react";
 import { fetchAccommodations } from "@/lib/http";
-import { useWishlistStore } from "@/lib/wishlistStore";
+import { useAuthStore } from "@/lib/authStore";
 
 function HomeContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -16,24 +16,23 @@ function HomeContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const router = useRouter();
-  const { syncWithServerData } = useWishlistStore();
 
-  // areaCode로 숙소 목록 요청
+  const accessToken = useAuthStore((s) => s.accessToken);
+
+  // 숙소 목록 요청
   useEffect(() => {
     setLoading(true);
     setError("");
     fetchAccommodations()
       .then((data) => {
         setAccommodations(data);
-        // 서버 데이터와 위시리스트 전역 상태 동기화
-        syncWithServerData(data);
         setLoading(false);
       })
       .catch((err) => {
         setError(err.message || "숙소 정보를 불러오지 못했습니다.");
         setLoading(false);
       });
-  }, [syncWithServerData]);
+  }, [accessToken]);
 
   // areaName별로 그룹핑, 카테고리 필터 적용
   const groupedAreas = (accommodations as any[])
@@ -49,14 +48,16 @@ function HomeContent() {
         id: acc.accommodationId?.toString() ?? "",
         images: acc.thumbnailUrl ? [acc.thumbnailUrl] : [],
         title: acc.title || "",
+        location: area.areaName || "",
         price: acc.price,
         rating: acc.avgRate ?? 0,
-        areaCode: acc.areaCode,
-        ...acc,
+        isInWishlist: acc.isInWishlist || acc.likedMe || false,
+        wishlistId: acc.wishlistId || null,
+        wishlistName: acc.wishlistName || "내 위시리스트",
       }));
       return {
         areaName: area.areaName,
-        areaCode: area.areaCode, // areaCode 포함
+        areaCode: area.areaCode,
         properties,
       };
     })
@@ -76,7 +77,7 @@ function HomeContent() {
     }
   };
 
-  // 지역 인기 숙소 헤더 클릭 시 /accommodations?areaCode=...로 이동
+  // 지역 인기 숙소 헤더 클릭 시 이동
   const handleAreaHeaderClick = (areaCode: string) => {
     if (!areaCode) return;
     router.push(`/accommodations?areaCode=${encodeURIComponent(areaCode)}`);
@@ -123,7 +124,6 @@ function HomeContent() {
                 >
                   {area.areaName}의 인기 숙소
                 </h3>
-                {/* 한 줄 넘으면 좌우 스크롤 + 화살표 */}
                 <div className="relative">
                   <AreaScrollRow properties={area.properties} />
                 </div>
@@ -132,7 +132,6 @@ function HomeContent() {
           </div>
         )}
       </main>
-      {/* 맨 위로 가기 버튼 */}
       <ScrollToTopButton />
     </>
   );
@@ -162,7 +161,7 @@ function Home() {
 
 export default Home;
 
-// 오른쪽 하단 맨 위로 가기 버튼
+// 맨 위로 가기 버튼
 function ScrollToTopButton() {
   const [visible, setVisible] = useState(false);
   useEffect(() => {

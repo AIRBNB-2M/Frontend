@@ -11,7 +11,8 @@ export interface DetailAccommodationResDto {
   number: string;
   refundRegulation: string;
   price: number;
-  likedMe: boolean;
+  isInWishlist: boolean;
+  wishlistId: number | null;
   avgRate: number;
   images: {
     thumbnail: string;

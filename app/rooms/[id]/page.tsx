@@ -1,4 +1,3 @@
-// app/rooms/[id]/page.tsx
 "use client";
 
 import { useState, useEffect, Suspense, useRef } from "react";
@@ -11,20 +10,14 @@ import {
   fetchWishlists,
   createWishlist,
 } from "@/lib/http";
-import http from "@/lib/http";
 import { AMENITIES } from "@/lib/amenitiesList";
 import { DetailAccommodationResDto } from "@/lib/detailAccommodation";
-import {
-  WishlistsResDto,
-  WishlistCreateResDto,
-  WishlistCreateReqDto,
-} from "@/lib/wishlistTypes";
+import { WishlistsResDto, WishlistCreateResDto } from "@/lib/wishlistTypes";
 import AccommodationMap from "@/components/GoogleMap";
-import StreetView from "@/components/StreetView";
 import "react-datepicker/dist/react-datepicker.css";
 import AirbnbDateRangePicker from "@/components/DateRangePicker";
 import { differenceInDays } from "date-fns";
-import { useWishlistStore } from "@/lib/wishlistStore";
+import { useAuthStore } from "@/lib/authStore";
 
 function AccommodationDetailContent() {
   const params = useParams();
@@ -39,8 +32,6 @@ function AccommodationDetailContent() {
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [checkInDate, setCheckInDate] = useState<Date | null>(null);
   const [checkOutDate, setCheckOutDate] = useState<Date | null>(null);
-  const [guests, setGuests] = useState(1);
-  const [showStreetView, setShowStreetView] = useState(false);
   const [guestDropdownOpen, setGuestDropdownOpen] = useState(false);
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
@@ -48,9 +39,10 @@ function AccommodationDetailContent() {
   const [dailyPrice, setDailyPrice] = useState<number | null>(null);
   const [priceLoading, setPriceLoading] = useState(false);
 
-  // 전역 위시리스트 상태 사용
-  const { isInWishlist, getWishlistInfo, addToWishlist, removeFromWishlist } =
-    useWishlistStore();
+  // 위시리스트 상태를 로컬에서 관리
+  const [isInWishlist, setIsInWishlist] = useState(false);
+  const [wishlistId, setWishlistId] = useState<number | null>(null);
+  const [wishlistName, setWishlistName] = useState<string>("");
 
   // 위시리스트 모달 관련 상태
   const [showWishlistModal, setShowWishlistModal] = useState(false);
@@ -65,16 +57,13 @@ function AccommodationDetailContent() {
   const [createError, setCreateError] = useState<string | null>(null);
 
   const countedGuests = adults + children; // 최대 인원 제한에 포함되는 수
-  const totalGuests = adults + children + infants;
   const maxInfants = 5; // 유아 상한
 
   const accommodationId = params.id as string;
-  // 현재 숙소의 위시리스트 상태
-  const wishlistInfo = getWishlistInfo(accommodationId);
-  const currentIsInWishlist = isInWishlist(accommodationId);
 
   // 드롭다운 감싸는 ref
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const accessToken = useAuthStore((s) => s.accessToken);
 
   // 바깥 클릭 감지
   useEffect(() => {
@@ -105,14 +94,11 @@ function AccommodationDetailContent() {
       .then((data) => {
         setAccommodation(data);
 
-        // 서버에서 받은 위시리스트 상태를 전역 상태에 동기화
-        if (data.likedMe && !currentIsInWishlist) {
-          // 실제로는 위시리스트 ID를 서버에서 받아와야 하지만 임시로 1 사용
-          addToWishlist(accommodationId, 1, "내 위시리스트");
-        } else if (!data.likedMe && currentIsInWishlist) {
-          // 서버에서는 위시리스트에 없지만 로컬에는 있는 경우 제거
-          removeFromWishlist(accommodationId);
-        }
+        // 서버에서 받은 위시리스트 상태를 로컬 상태에 설정
+        setIsInWishlist(data.isInWishlist || false);
+        // 실제 API에서 wishlistId를 제공한다면 해당 값을 사용
+        // setWishlistId(data.wishlistId || null);
+        // setWishlistName(data.wishlistName || "");
 
         setLoading(false);
       })
@@ -121,7 +107,7 @@ function AccommodationDetailContent() {
         setError(err.message || "숙소 정보를 불러오지 못했습니다.");
         setLoading(false);
       });
-  }, [accommodationId, addToWishlist, removeFromWishlist, currentIsInWishlist]);
+  }, [accommodationId, accessToken]);
 
   // 날짜 선택 시 가격 조회 (체크인과 체크아웃이 모두 선택된 경우에만)
   useEffect(() => {
@@ -181,6 +167,11 @@ function AccommodationDetailContent() {
       setWishlists(data);
     } catch (err: any) {
       console.error("위시리스트 조회 오류:", err);
+      if (err?.response?.status === 403 || err?.response?.status === 401) {
+        // 로그인이 필요한 경우
+        router.push("/login");
+        return;
+      }
       setWishlistError("위시리스트를 불러오지 못했습니다.");
     } finally {
       setLoadingWishlists(false);
@@ -190,17 +181,19 @@ function AccommodationDetailContent() {
   // 위시리스트 토글 핸들러
   const handleToggleLike = async () => {
     try {
-      if (currentIsInWishlist && wishlistInfo) {
+      if (isInWishlist && wishlistId) {
         // 찜 해제
         await removeAccommodationFromWishlist(
-          wishlistInfo.wishlistId,
+          wishlistId,
           Number(accommodationId)
         );
-        removeFromWishlist(accommodationId); // 전역 상태 업데이트
+        setIsInWishlist(false);
+        setWishlistId(null);
+        setWishlistName("");
       } else {
         // 찜 추가 - 위시리스트 선택 모달 열기
         setShowWishlistModal(true);
-        await fetchWishlists();
+        await loadWishlists();
       }
     } catch (err: any) {
       console.error("위시리스트 토글 실패", err);
@@ -220,9 +213,12 @@ function AccommodationDetailContent() {
       const selectedWishlist = wishlists.find(
         (w) => w.wishlistId === selectedWishlistId
       );
-      const wishlistName = selectedWishlist?.name || "내 위시리스트";
+      const selectedWishlistName = selectedWishlist?.name || "내 위시리스트";
 
-      addToWishlist(accommodationId, selectedWishlistId, wishlistName); // 전역 상태 업데이트
+      // 로컬 상태 업데이트
+      setIsInWishlist(true);
+      setWishlistId(selectedWishlistId);
+      setWishlistName(selectedWishlistName);
       setShowWishlistModal(false);
     } catch (err: any) {
       console.error("위시리스트 추가 실패", err);
@@ -383,13 +379,13 @@ function AccommodationDetailContent() {
               >
                 <i
                   className={`${
-                    currentIsInWishlist
+                    isInWishlist
                       ? "ri-heart-fill text-red-500"
                       : "ri-heart-line text-gray-600"
                   } w-5 h-5`}
                 />
                 <span className="text-sm font-medium">
-                  {currentIsInWishlist ? "저장됨" : "저장"}
+                  {isInWishlist ? "저장됨" : "저장"}
                 </span>
               </button>
             </div>
@@ -535,30 +531,234 @@ function AccommodationDetailContent() {
                 </p>
               </div>
 
-              {/* 지도 */}
-              <h3 className="text-xl font-semibold mb-4">숙소 위치</h3>
-              <p className="text-sm mt-2">{accommodation.address}</p>
-              <div className="mt-8 bg-white border border-gray-200 rounded-xl p-6">
-                <AccommodationMap
-                  lat={accommodation.mapY}
-                  lng={accommodation.mapX}
-                />
-                <button
-                  onClick={() => setShowStreetView(!showStreetView)}
-                  className="mt-4 px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
-                >
-                  {showStreetView ? "로드뷰 닫기" : "로드뷰 보기"}
-                </button>
-                {showStreetView && (
-                  <div className="mt-4">
-                    <StreetView
-                      lat={accommodation.mapY}
-                      lng={accommodation.mapX}
-                    />
-                  </div>
-                )}
+              {/* 지도 위치 제목 */}
+              <div>
+                <h3 className="text-xl font-semibold mb-4">숙소 위치</h3>
+                <p className="text-sm mb-4">{accommodation.address}</p>
               </div>
+            </div>
 
+            {/* 오른쪽 예약 카드 */}
+            <div className="lg:col-span-1">
+              <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-baseline gap-1">
+                    {!checkInDate || !checkOutDate ? (
+                      <span className="text-lg text-gray-600">
+                        날짜를 선택해 요금 확인
+                      </span>
+                    ) : priceLoading ? (
+                      <span className="text-lg text-gray-600">
+                        가격 조회 중...
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-2xl font-semibold">
+                          ₩{dailyPrice?.toLocaleString()}
+                        </span>
+                        <span className="text-gray-600">/박</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4 mb-6">
+                  <AirbnbDateRangePicker
+                    onDateRangeChange={handleDateRangeChange}
+                  />
+
+                  <div className="relative" ref={dropdownRef}>
+                    {/* 요약 버튼 */}
+                    <button
+                      onClick={() => setGuestDropdownOpen(!guestDropdownOpen)}
+                      className="w-full border border-gray-300 rounded-lg p-3 flex justify-between items-center text-left hover:border-gray-400 transition-colors"
+                    >
+                      게스트 {countedGuests}명
+                      {infants > 0 && `, 유아 ${infants}명`}
+                      {guestDropdownOpen ? (
+                        <i className="ri-arrow-up-s-line w-5 h-5 inline-block ml-2"></i>
+                      ) : (
+                        <i className="ri-arrow-down-s-line w-5 h-5 inline-block ml-2"></i>
+                      )}
+                    </button>
+
+                    {guestDropdownOpen && (
+                      <div className="absolute z-20 mt-2 w-full bg-white border border-gray-300 rounded-xl shadow-lg p-4">
+                        {/* 성인 */}
+                        <div className="flex items-center justify-between py-2">
+                          <div>
+                            <p className="font-medium">성인</p>
+                            <p className="text-xs text-gray-500">
+                              만 13세 이상
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                setAdults((a) => Math.max(1, a - 1))
+                              }
+                              disabled={adults <= 1}
+                              className={`w-8 h-8 border rounded-full flex items-center justify-center 
+              ${
+                adults <= 1
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "hover:bg-gray-100"
+              }`}
+                            >
+                              -
+                            </button>
+                            <span>{adults}</span>
+                            <button
+                              onClick={() => setAdults((a) => a + 1)}
+                              disabled={
+                                countedGuests >= accommodation.maxPeople
+                              }
+                              className={`w-8 h-8 border rounded-full flex items-center justify-center 
+              ${
+                countedGuests >= accommodation.maxPeople
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "hover:bg-gray-100"
+              }`}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 어린이 */}
+                        <div className="flex items-center justify-between py-2 border-t">
+                          <div>
+                            <p className="font-medium">어린이</p>
+                            <p className="text-xs text-gray-500">만 2~12세</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                setChildren((c) => Math.max(0, c - 1))
+                              }
+                              disabled={children <= 0}
+                              className={`w-8 h-8 border rounded-full flex items-center justify-center 
+              ${
+                children <= 0
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "hover:bg-gray-100"
+              }`}
+                            >
+                              -
+                            </button>
+                            <span>{children}</span>
+                            <button
+                              onClick={() => setChildren((c) => c + 1)}
+                              disabled={
+                                countedGuests >= accommodation.maxPeople
+                              }
+                              className={`w-8 h-8 border rounded-full flex items-center justify-center 
+              ${
+                countedGuests >= accommodation.maxPeople
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "hover:bg-gray-100"
+              }`}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 유아 */}
+                        <div className="flex items-center justify-between py-2 border-t">
+                          <div>
+                            <p className="font-medium">유아</p>
+                            <p className="text-xs text-gray-500">만 2세 미만</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                setInfants((i) => Math.max(0, i - 1))
+                              }
+                              disabled={infants <= 0}
+                              className={`w-8 h-8 border rounded-full flex items-center justify-center 
+              ${
+                infants <= 0
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "hover:bg-gray-100"
+              }`}
+                            >
+                              -
+                            </button>
+                            <span>{infants}</span>
+                            <button
+                              onClick={() => setInfants((i) => i + 1)}
+                              disabled={infants >= maxInfants}
+                              className={`w-8 h-8 border rounded-full flex items-center justify-center 
+              ${
+                infants >= maxInfants
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "hover:bg-gray-100"
+              }`}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 안내 문구 */}
+                        <p className="mt-3 text-xs text-gray-500 leading-relaxed">
+                          이 숙소의 최대 숙박 인원은 {accommodation.maxPeople}
+                          명(유아 제외)입니다.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <button className="w-full bg-pink-500 text-white py-3 rounded-lg font-semibold hover:bg-pink-600 transition-colors mb-4">
+                  예약하기
+                </button>
+
+                <p className="text-center text-gray-500 text-sm">
+                  예약 확정 전에는 요금이 청구되지 않습니다
+                </p>
+
+                {checkInDate &&
+                  checkOutDate &&
+                  dailyPrice !== null &&
+                  nights > 0 &&
+                  !priceLoading && (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>
+                            ₩{dailyPrice.toLocaleString()} x {nights}박
+                          </span>
+                          <span>₩{totalPrice.toLocaleString()}</span>
+                        </div>
+
+                        <hr className="my-2" />
+                        <div className="flex justify-between font-semibold">
+                          <span>총 합계</span>
+                          <span>₩{totalPrice.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+              </div>
+            </div>
+          </div>
+
+          {/* 지도 섹션 - 전체 너비 사용 */}
+          <div className="mb-8 mt-8">
+            <div className="pb-8 border-b border-gray-200">
+              <AccommodationMap
+                lat={accommodation.mapY}
+                lng={accommodation.mapX}
+              />
+            </div>
+          </div>
+
+          {/* 메인 콘텐츠 계속 */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            {/* 왼쪽 콘텐츠 */}
+            <div className="lg:col-span-2 space-y-8">
               {/* 편의시설 */}
               <div className="pb-8 border-b border-gray-200">
                 <h3 className="text-xl font-semibold mb-6">숙소 편의시설</h3>
@@ -646,216 +846,6 @@ function AccommodationDetailContent() {
                       : `리뷰 ${accommodation.reviews.length}개 모두 보기`}
                   </button>
                 )}
-              </div>
-            </div>
-
-            {/* 오른쪽 예약 카드 */}
-            <div className="lg:col-span-1">
-              <div className="sticky top-24">
-                <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-baseline gap-1">
-                      {!checkInDate || !checkOutDate ? (
-                        <span className="text-lg text-gray-600">
-                          날짜를 선택해 요금 확인
-                        </span>
-                      ) : priceLoading ? (
-                        <span className="text-lg text-gray-600">
-                          가격 조회 중...
-                        </span>
-                      ) : (
-                        <>
-                          <span className="text-2xl font-semibold">
-                            ₩{dailyPrice?.toLocaleString()}
-                          </span>
-                          <span className="text-gray-600">/박</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 mb-6">
-                    <AirbnbDateRangePicker
-                      onDateRangeChange={handleDateRangeChange}
-                    />
-
-                    <div className="relative" ref={dropdownRef}>
-                      {/* 요약 버튼 */}
-                      <button
-                        onClick={() => setGuestDropdownOpen(!guestDropdownOpen)}
-                        className="w-full border border-gray-300 rounded-lg p-3 flex justify-between items-center text-left hover:border-gray-400 transition-colors"
-                      >
-                        게스트 {countedGuests}명
-                        {infants > 0 && `, 유아 ${infants}명`}
-                        {guestDropdownOpen ? (
-                          <i className="ri-arrow-up-s-line w-5 h-5 inline-block ml-2"></i>
-                        ) : (
-                          <i className="ri-arrow-down-s-line w-5 h-5 inline-block ml-2"></i>
-                        )}
-                      </button>
-
-                      {guestDropdownOpen && (
-                        <div className="absolute z-20 mt-2 w-full bg-white border border-gray-300 rounded-xl shadow-lg p-4">
-                          {/* 성인 */}
-                          <div className="flex items-center justify-between py-2">
-                            <div>
-                              <p className="font-medium">성인</p>
-                              <p className="text-xs text-gray-500">
-                                만 13세 이상
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() =>
-                                  setAdults((a) => Math.max(1, a - 1))
-                                }
-                                disabled={adults <= 1}
-                                className={`w-8 h-8 border rounded-full flex items-center justify-center 
-                ${
-                  adults <= 1
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "hover:bg-gray-100"
-                }`}
-                              >
-                                -
-                              </button>
-                              <span>{adults}</span>
-                              <button
-                                onClick={() => setAdults((a) => a + 1)}
-                                disabled={
-                                  countedGuests >= accommodation.maxPeople
-                                }
-                                className={`w-8 h-8 border rounded-full flex items-center justify-center 
-                ${
-                  countedGuests >= accommodation.maxPeople
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "hover:bg-gray-100"
-                }`}
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* 어린이 */}
-                          <div className="flex items-center justify-between py-2 border-t">
-                            <div>
-                              <p className="font-medium">어린이</p>
-                              <p className="text-xs text-gray-500">만 2~12세</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() =>
-                                  setChildren((c) => Math.max(0, c - 1))
-                                }
-                                disabled={children <= 0}
-                                className={`w-8 h-8 border rounded-full flex items-center justify-center 
-                ${
-                  children <= 0
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "hover:bg-gray-100"
-                }`}
-                              >
-                                -
-                              </button>
-                              <span>{children}</span>
-                              <button
-                                onClick={() => setChildren((c) => c + 1)}
-                                disabled={
-                                  countedGuests >= accommodation.maxPeople
-                                }
-                                className={`w-8 h-8 border rounded-full flex items-center justify-center 
-                ${
-                  countedGuests >= accommodation.maxPeople
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "hover:bg-gray-100"
-                }`}
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* 유아 */}
-                          <div className="flex items-center justify-between py-2 border-t">
-                            <div>
-                              <p className="font-medium">유아</p>
-                              <p className="text-xs text-gray-500">
-                                만 2세 미만
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() =>
-                                  setInfants((i) => Math.max(0, i - 1))
-                                }
-                                disabled={infants <= 0}
-                                className={`w-8 h-8 border rounded-full flex items-center justify-center 
-                ${
-                  infants <= 0
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "hover:bg-gray-100"
-                }`}
-                              >
-                                -
-                              </button>
-                              <span>{infants}</span>
-                              <button
-                                onClick={() => setInfants((i) => i + 1)}
-                                disabled={infants >= maxInfants}
-                                className={`w-8 h-8 border rounded-full flex items-center justify-center 
-                ${
-                  infants >= maxInfants
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "hover:bg-gray-100"
-                }`}
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* 안내 문구 */}
-                          <p className="mt-3 text-xs text-gray-500 leading-relaxed">
-                            이 숙소의 최대 숙박 인원은 {accommodation.maxPeople}
-                            명(유아 제외)입니다.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <button className="w-full bg-pink-500 text-white py-3 rounded-lg font-semibold hover:bg-pink-600 transition-colors mb-4">
-                    예약하기
-                  </button>
-
-                  <p className="text-center text-gray-500 text-sm">
-                    예약 확정 전에는 요금이 청구되지 않습니다
-                  </p>
-
-                  {checkInDate &&
-                    checkOutDate &&
-                    dailyPrice !== null &&
-                    nights > 0 &&
-                    !priceLoading && (
-                      <div className="mt-6 pt-6 border-t border-gray-200">
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span>
-                              ₩{dailyPrice.toLocaleString()} x {nights}박
-                            </span>
-                            <span>₩{totalPrice.toLocaleString()}</span>
-                          </div>
-
-                          <hr className="my-2" />
-                          <div className="flex justify-between font-semibold">
-                            <span>총 합계</span>
-                            <span>₩{totalPrice.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                </div>
               </div>
             </div>
           </div>
