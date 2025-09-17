@@ -5,23 +5,8 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import RefreshAccessTokenOnMount from "@/components/RefreshAccessTokenOnMount";
 import { useAuthStore } from "@/lib/authStore";
-import http from "@/lib/http";
-
-interface WishlistsResDto {
-  wishlistId: number;
-  name: string;
-  thumbnailUrl: string;
-  savedAccommodations: number;
-}
-
-interface WishlistCreateReqDto {
-  wishlistName: string;
-}
-
-interface WishlistCreateResDto {
-  wishlistId: number;
-  wishlistName: string;
-}
+import { createWishlist, deleteWishlist, fetchWishlists } from "@/lib/http";
+import { WishlistCreateResDto, WishlistsResDto } from "@/lib/wishlistTypes";
 
 export default function WishlistsPage() {
   const [wishlists, setWishlists] = useState<WishlistsResDto[]>([]);
@@ -56,12 +41,12 @@ export default function WishlistsPage() {
   useEffect(() => {
     if (!accessToken) return;
 
-    const fetchWishlists = async () => {
+    const loadWishlists = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await http.get("/api/wishlists");
-        setWishlists(response.data);
+        const data = await fetchWishlists();
+        setWishlists(data);
       } catch (err: any) {
         console.error("위시리스트 조회 오류:", err);
         if (err?.forceLogout) {
@@ -74,7 +59,7 @@ export default function WishlistsPage() {
       }
     };
 
-    fetchWishlists();
+    loadWishlists();
   }, [accessToken]);
 
   // 위시리스트 클릭 핸들러
@@ -115,19 +100,14 @@ export default function WishlistsPage() {
       setIsCreating(true);
       setCreateError(null);
 
-      const reqDto: WishlistCreateReqDto = {
-        wishlistName: wishlistName.trim(),
-      };
-
-      const response = await http.post<WishlistCreateResDto>(
-        "/api/wishlists",
-        reqDto
+      const response: WishlistCreateResDto = await createWishlist(
+        wishlistName.trim()
       );
 
       // 생성 성공 시 새 위시리스트를 목록에 추가
       const newWishlist: WishlistsResDto = {
-        wishlistId: response.data.wishlistId,
-        name: response.data.wishlistName,
+        wishlistId: response.wishlistId,
+        name: response.wishlistName,
         thumbnailUrl: "",
         savedAccommodations: 0,
       };
@@ -136,7 +116,7 @@ export default function WishlistsPage() {
       handleCloseModal();
 
       // 생성된 위시리스트로 이동
-      router.push(`/wishlists/${response.data.wishlistId}`);
+      router.push(`/wishlists/${response.wishlistId}`);
     } catch (err: any) {
       console.error("위시리스트 생성 오류:", err);
       if (err?.forceLogout) {
@@ -148,6 +128,27 @@ export default function WishlistsPage() {
       }
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  // 위시리스트 삭제
+  const handleDeleteWishlist = async (
+    wishlistId: number,
+    wishlistName: string
+  ) => {
+    if (!confirm(`"${wishlistName}" 위시리스트를 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      await deleteWishlist(wishlistId);
+      setWishlists((prev) => prev.filter((w) => w.wishlistId !== wishlistId));
+    } catch (err: any) {
+      if (err?.forceLogout) {
+        alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+      } else {
+        alert(err?.message || "위시리스트 삭제 중 오류가 발생했습니다.");
+      }
     }
   };
 
@@ -230,31 +231,44 @@ export default function WishlistsPage() {
 
               {/* 기존 위시리스트들 */}
               {wishlists.map((wishlist) => (
-                <div
-                  key={wishlist.wishlistId}
-                  onClick={() => handleWishlistClick(wishlist.wishlistId)}
-                  className="group cursor-pointer"
-                >
-                  <div className="aspect-square rounded-lg overflow-hidden mb-3 bg-gray-200">
-                    {wishlist.thumbnailUrl ? (
-                      <img
-                        src={wishlist.thumbnailUrl}
-                        alt={wishlist.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-pink-100 to-pink-200 flex items-center justify-center">
-                        <i className="ri-heart-line text-4xl text-pink-400"></i>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-medium text-gray-900 group-hover:text-gray-600 transition-colors truncate">
-                      {wishlist.name}
-                    </h3>
-                    <p className="text-gray-500 text-sm">
-                      저장된 숙소 {wishlist.savedAccommodations}개
-                    </p>
+                <div key={wishlist.wishlistId} className="group relative">
+                  {/* 삭제 버튼 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteWishlist(wishlist.wishlistId, wishlist.name);
+                    }}
+                    className="absolute top-2 right-2 z-10 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-sm hover:shadow-md"
+                    title="위시리스트 삭제"
+                  >
+                    <i className="ri-delete-bin-line text-gray-600 hover:text-red-600 w-4 h-4"></i>
+                  </button>
+
+                  <div
+                    onClick={() => handleWishlistClick(wishlist.wishlistId)}
+                    className="cursor-pointer"
+                  >
+                    <div className="aspect-square rounded-lg overflow-hidden mb-3 bg-gray-200">
+                      {wishlist.thumbnailUrl ? (
+                        <img
+                          src={wishlist.thumbnailUrl}
+                          alt={wishlist.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-pink-100 to-pink-200 flex items-center justify-center">
+                          <i className="ri-heart-line text-4xl text-pink-400"></i>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="font-medium text-gray-900 group-hover:text-gray-600 transition-colors truncate">
+                        {wishlist.name}
+                      </h3>
+                      <p className="text-gray-500 text-sm">
+                        저장된 숙소 {wishlist.savedAccommodations}개
+                      </p>
+                    </div>
                   </div>
                 </div>
               ))}
