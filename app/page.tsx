@@ -13,14 +13,14 @@ import { useAuthStore } from "@/lib/authStore";
 function HomeContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [accommodations, setAccommodations] = useState([]);
+  const { accessToken, isTokenInitialized } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const accessToken = useAuthStore((s) => s.accessToken);
-
   // 숙소 목록 요청
   useEffect(() => {
+    if (!isTokenInitialized) return;
     setLoading(true);
     setError("");
     fetchAccommodations()
@@ -32,7 +32,7 @@ function HomeContent() {
         setError(err.message || "숙소 정보를 불러오지 못했습니다.");
         setLoading(false);
       });
-  }, [accessToken]);
+  }, [isTokenInitialized]);
 
   // areaName별로 그룹핑, 카테고리 필터 적용
   const groupedAreas = (accommodations as any[])

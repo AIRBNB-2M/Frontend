@@ -53,6 +53,12 @@ http.interceptors.response.use(
       if (token) {
         const { setAccessToken } = useAuthStore.getState();
         setAccessToken(token);
+      } else {
+        // 첫 요청에서 토큰이 없으면 초기화 완료로 표시
+        const { isTokenInitialized, markInitialized } = useAuthStore.getState();
+        if (!isTokenInitialized) {
+          markInitialized();
+        }
       }
     } catch {}
     return response;
@@ -301,9 +307,8 @@ const refreshHttp = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   try {
-    // Backend is expected to read refresh token from http-only cookie and return new access token in Authorization header
     const res = await refreshHttp.post("/api/auth/refresh");
     const token = extractAccessTokenFromHeaders(res.headers as any);
     const { setAccessToken } = useAuthStore.getState();

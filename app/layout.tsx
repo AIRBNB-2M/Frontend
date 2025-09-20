@@ -3,6 +3,9 @@ import { Geist, Geist_Mono, Pacifico } from "next/font/google";
 import "./globals.css";
 import "./react-time-picker-global.css";
 import RefreshAccessTokenOnMount from "@/components/RefreshAccessTokenOnMount";
+import { useAuthStore } from "@/lib/authStore";
+import { useEffect } from "react";
+import AuthInitializer from "@/components/AuthInitializer";
 
 const pacifico = Pacifico({
   weight: "400",
@@ -36,7 +39,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${pacifico.variable} antialiased`}
       >
-        <RefreshAccessTokenOnMount />
+        <AuthInitializer />
         {children}
       </body>
     </html>

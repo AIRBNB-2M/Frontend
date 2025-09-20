@@ -22,6 +22,7 @@ import { useAuthStore } from "@/lib/authStore";
 function AccommodationDetailContent() {
   const params = useParams();
   const router = useRouter();
+  const { accessToken, isTokenInitialized } = useAuthStore();
   const [accommodation, setAccommodation] =
     useState<DetailAccommodationResDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,7 +64,6 @@ function AccommodationDetailContent() {
 
   // 드롭다운 감싸는 ref
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const accessToken = useAuthStore((s) => s.accessToken);
 
   // 바깥 클릭 감지
   useEffect(() => {
@@ -85,7 +85,7 @@ function AccommodationDetailContent() {
   }, [guestDropdownOpen]);
 
   useEffect(() => {
-    if (!accommodationId) return;
+    if (!accommodationId || !isTokenInitialized) return;
 
     setLoading(true);
     setError("");
@@ -93,13 +93,8 @@ function AccommodationDetailContent() {
     fetchAccommodationDetail(accommodationId)
       .then((data) => {
         setAccommodation(data);
-
-        // 서버에서 받은 위시리스트 상태를 로컬 상태에 설정
+        // 토큰이 있으면 개인화된 정보 포함, 없으면 기본값
         setIsInWishlist(data.isInWishlist || false);
-        // 실제 API에서 wishlistId를 제공한다면 해당 값을 사용
-        // setWishlistId(data.wishlistId || null);
-        // setWishlistName(data.wishlistName || "");
-
         setLoading(false);
       })
       .catch((err) => {
@@ -107,7 +102,7 @@ function AccommodationDetailContent() {
         setError(err.message || "숙소 정보를 불러오지 못했습니다.");
         setLoading(false);
       });
-  }, [accommodationId, accessToken]);
+  }, [accommodationId, isTokenInitialized]);
 
   // 날짜 선택 시 가격 조회 (체크인과 체크아웃이 모두 선택된 경우에만)
   useEffect(() => {

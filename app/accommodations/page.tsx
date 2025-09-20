@@ -37,13 +37,15 @@ interface PageResponseDto {
 function AccommodationsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { accessToken, isTokenInitialized } = useAuthStore();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [pageData, setPageData] = useState<PageResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const accessToken = useAuthStore((s) => s.accessToken);
 
   useEffect(() => {
+    if (!isTokenInitialized) return;
+
     setLoading(true);
     setError("");
 
@@ -63,7 +65,7 @@ function AccommodationsContent() {
         setError(err.message || "숙소 정보를 불러오지 못했습니다.");
         setLoading(false);
       });
-  }, [searchParams, accessToken]);
+  }, [searchParams, isTokenInitialized]);
 
   // 카테고리 필터 적용
   const filteredContents =
