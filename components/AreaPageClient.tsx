@@ -1,9 +1,7 @@
 "use client";
 import Header from "@/components/Header";
-import CategoryFilter from "@/components/CategoryFilter";
 import PropertyCard from "@/components/PropertyCard";
-import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { fetchAccommodations } from "@/lib/http";
 
 export default function AreaPageClient({ areaCode }: { areaCode: string }) {
@@ -55,10 +53,6 @@ export default function AreaPageClient({ areaCode }: { areaCode: string }) {
   return (
     <div className="min-h-screen bg-white">
       <Header />
-      <CategoryFilter
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-      />
       <main className="max-w-screen-2xl mx-auto px-6 py-8">
         {loading ? (
           <div className="text-center py-10">로딩 중...</div>

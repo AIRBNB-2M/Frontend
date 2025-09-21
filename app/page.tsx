@@ -2,7 +2,6 @@
 
 import Header from "@/components/Header";
 import SearchHeader from "@/components/SearchHeader";
-import CategoryFilter from "@/components/CategoryFilter";
 import { useRef, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import PropertyCard from "@/components/PropertyCard";
@@ -86,10 +85,7 @@ function HomeContent() {
   return (
     <>
       <SearchHeader />
-      <CategoryFilter
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-      />
+
       {/* 지역명 리스트 */}
       <div className="max-w-screen-2xl mx-auto px-6 mt-2 mb-4">
         <div className="flex flex-wrap gap-2 text-xs text-gray-500">

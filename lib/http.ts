@@ -1,6 +1,9 @@
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
 import { useAuthStore } from "./authStore";
-import { DetailAccommodationResDto } from "./detailAccommodation";
+import {
+  DetailAccommodationResDto,
+  ViewHistoryResDto,
+} from "./detailAccommodation";
 import {
   WishlistCreateResDto,
   WishlistDetailResDto,
@@ -148,6 +151,12 @@ http.interceptors.response.use(
     }
   }
 );
+
+// 최근 조회 내역 조회
+export async function fetchRecentViews(): Promise<ViewHistoryResDto[]> {
+  const response = await http.get("/api/accommodations/recent");
+  return response.data;
+}
 
 export async function fetchAccommodationDetail(
   id: string

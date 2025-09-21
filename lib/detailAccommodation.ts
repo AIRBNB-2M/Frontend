@@ -29,3 +29,18 @@ export interface DetailAccommodationResDto {
     content: string;
   }[];
 }
+
+export interface ViewHistoryDto {
+  viewDate: string;
+  accommodationId: number;
+  title: string;
+  avgRate: number;
+  thumbnailUrl: string;
+  isInWishlist: boolean;
+  wishlistId: number | null;
+}
+
+export interface ViewHistoryResDto {
+  date: string;
+  accommodations: ViewHistoryDto[];
+}

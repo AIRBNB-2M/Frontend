@@ -2,7 +2,6 @@
 
 import Header from "@/components/Header";
 import SearchHeader from "@/components/SearchHeader";
-import CategoryFilter from "@/components/CategoryFilter";
 import PropertyCard from "@/components/PropertyCard";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -144,10 +143,6 @@ function AccommodationsContent() {
   return (
     <>
       <SearchHeader />
-      <CategoryFilter
-        selectedCategory={selectedCategory}
-        onCategoryChange={handleCategoryChange}
-      />
       <main className="max-w-screen-2xl mx-auto px-6 py-8">
         {loading ? (
           <div className="text-center py-10">

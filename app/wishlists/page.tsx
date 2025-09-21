@@ -18,7 +18,7 @@ export default function WishlistsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const accessToken = useAuthStore((state) => state.accessToken);
+  const { accessToken, isTokenInitialized } = useAuthStore();
   const router = useRouter();
 
   // 토큰 새로고침 완료 대기
@@ -40,7 +40,7 @@ export default function WishlistsPage() {
 
   // 위시리스트 데이터 가져오기
   useEffect(() => {
-    if (!accessToken) return;
+    if (!isTokenInitialized) return;
 
     const loadWishlists = async () => {
       try {
@@ -61,7 +61,7 @@ export default function WishlistsPage() {
     };
 
     loadWishlists();
-  }, [accessToken]);
+  }, [isTokenInitialized]);
 
   // 위시리스트 클릭 핸들러
   const handleWishlistClick = (wishlistId: number) => {
@@ -115,9 +115,6 @@ export default function WishlistsPage() {
 
       setWishlists((prev) => [newWishlist, ...prev]);
       handleCloseModal();
-
-      // 생성된 위시리스트로 이동
-      router.push(`/wishlists/${response.wishlistId}`);
     } catch (err: any) {
       console.error("위시리스트 생성 오류:", err);
       if (err?.forceLogout) {
@@ -274,28 +271,6 @@ export default function WishlistsPage() {
                 </div>
               ))}
             </div>
-
-            {/* 빈 상태 */}
-            {wishlists.length === 0 && (
-              <div className="text-center py-16">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <i className="ri-heart-line text-3xl text-gray-400"></i>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                  아직 위시리스트가 없습니다
-                </h3>
-                <p className="text-gray-500 mb-6">
-                  마음에 드는 숙소를 발견하면 하트를 눌러 위시리스트에
-                  저장해보세요
-                </p>
-                <button
-                  onClick={handleCreateWishlist}
-                  className="bg-pink-500 text-white px-6 py-3 rounded-lg hover:bg-pink-600 transition-colors"
-                >
-                  첫 위시리스트 만들기
-                </button>
-              </div>
-            )}
           </>
         )}
 
