@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
 import { useAuthStore } from "./authStore";
 import {
+  AccommodationPriceResDto,
   DetailAccommodationResDto,
   ViewHistoryResDto,
 } from "./detailAccommodation";
@@ -167,16 +168,10 @@ export async function fetchAccommodationDetail(
 
 export async function fetchAccommodationPrice(
   id: string,
-  checkIn: string,
-  checkOut: string
-): Promise<{ dailyPrice: number }> {
-  // TODO: 실제 API 엔드포인트로 변경 필요
-  // 예상 엔드포인트: GET /api/accommodations/{id}/price?checkIn=2024-01-01&checkOut=2024-01-02
+  checkIn: string
+): Promise<AccommodationPriceResDto> {
   const res = await http.get(`/api/accommodations/${id}/price`, {
-    params: {
-      checkIn,
-      checkOut,
-    },
+    params: { date: checkIn },
   });
   return res.data;
 }

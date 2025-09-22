@@ -41,11 +41,29 @@ export default function AirbnbDateRangePicker({
 
   // 날짜 선택 핸들러
   const handleDateSelect = (selectedRange: DateRange | undefined) => {
-    setRange(selectedRange);
+    if (!selectedRange) {
+      setRange(undefined);
+      return;
+    }
 
-    // 체크인과 체크아웃이 모두 선택되면 팝업 닫기
-    if (selectedRange?.from && selectedRange?.to) {
-      setOpen(false);
+    const { from, to } = selectedRange;
+
+    // from과 to가 같은 날짜인 경우 (한 날짜만 클릭한 경우)
+    if (from && to && from.getTime() === to.getTime()) {
+      setRange({ from, to: undefined });
+      return;
+    }
+
+    // 첫 번째 클릭 (체크인만 선택됨)
+    if (from && !to) {
+      setRange({ from, to: undefined });
+      return;
+    }
+
+    // 두 번째 클릭 → 체크아웃 확정 (서로 다른 날짜)
+    if (from && to && from.getTime() !== to.getTime()) {
+      setRange({ from, to });
+      setOpen(false); // 팝업 닫기
     }
   };
 

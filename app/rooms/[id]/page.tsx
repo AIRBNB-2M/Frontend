@@ -1,5 +1,6 @@
 "use client";
 
+import { Grid } from "lucide-react";
 import { useState, useEffect, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
@@ -8,13 +9,14 @@ import {
   fetchAccommodationDetail,
   removeAccommodationFromWishlist,
   fetchWishlists,
+  fetchAccommodationPrice,
 } from "@/lib/http";
 import { AMENITIES } from "@/lib/amenitiesList";
 import { DetailAccommodationResDto } from "@/lib/detailAccommodation";
 import AccommodationMap from "@/components/GoogleMap";
 import "react-datepicker/dist/react-datepicker.css";
 import AirbnbDateRangePicker from "@/components/DateRangePicker";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, format } from "date-fns";
 import { useAuthStore } from "@/lib/authStore";
 import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/Toast";
@@ -83,14 +85,20 @@ function AccommodationDetailContent() {
       return;
     }
 
+    if (checkInDate >= checkOutDate) {
+      setDailyPrice(null);
+      return;
+    }
+
     const fetchPrice = async () => {
       setPriceLoading(true);
       try {
-        // 임시 구현: 기본 가격 사용
-        setTimeout(() => {
-          setDailyPrice(accommodation?.price || 0);
-          setPriceLoading(false);
-        }, 500);
+        const data = await fetchAccommodationPrice(
+          accommodationId,
+          format(checkInDate, "yyyy-MM-dd")
+        );
+        setDailyPrice(data.price);
+        setPriceLoading(false);
       } catch (err) {
         console.error("가격 조회 실패:", err);
         setDailyPrice(accommodation?.price || 0);
@@ -286,57 +294,160 @@ function AccommodationDetailContent() {
           <div className="relative mb-12 rounded-xl overflow-hidden">
             {showAllPhotos ? (
               <div className="fixed inset-0 bg-black z-50 flex flex-col">
-                <div className="flex items-center justify-between p-6 text-white">
+                {/* 헤더 */}
+                <div className="flex items-center justify-between p-4 sm:p-6 text-white bg-black bg-opacity-50 backdrop-blur-sm">
                   <button
                     onClick={() => setShowAllPhotos(false)}
-                    className="flex items-center gap-2 hover:bg-gray-800 px-4 py-2 rounded-lg transition-colors"
+                    className="flex items-center gap-2 hover:bg-gray-800 px-3 py-2 rounded-lg transition-colors"
                   >
                     <i className="ri-arrow-left-line w-5 h-5"></i>
-                    돌아가기
+                    <span className="hidden sm:inline">돌아가기</span>
                   </button>
-                  <span>
+                  <span className="text-sm sm:text-base">
                     {selectedImageIndex + 1} / {allImages.length}
                   </span>
                 </div>
-                <div className="flex-1 flex items-center justify-center p-6">
-                  <img
-                    src={allImages[selectedImageIndex]}
-                    alt={`숙소 사진 ${selectedImageIndex + 1}`}
-                    className="max-w-full max-h-full object-contain"
-                  />
+
+                {/* 이미지 컨테이너 */}
+                <div className="flex-1 flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <img
+                      src={allImages[selectedImageIndex]}
+                      alt={`숙소 사진 ${selectedImageIndex + 1}`}
+                      className="max-w-full max-h-full object-contain select-none"
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: "100%",
+                        width: "auto",
+                        height: "auto",
+                      }}
+                      onLoad={(e) => {
+                        // 이미지 로드 완료 후 크기 조정
+                        const img = e.target as HTMLImageElement;
+                        const container = img.parentElement;
+                        if (container) {
+                          const containerRect =
+                            container.getBoundingClientRect();
+                          const imgAspectRatio =
+                            img.naturalWidth / img.naturalHeight;
+                          const containerAspectRatio =
+                            containerRect.width / containerRect.height;
+
+                          if (imgAspectRatio > containerAspectRatio) {
+                            // 가로가 더 긴 이미지
+                            img.style.width = "100%";
+                            img.style.height = "auto";
+                          } else {
+                            // 세로가 더 긴 이미지
+                            img.style.width = "auto";
+                            img.style.height = "100%";
+                          }
+                        }
+                      }}
+                    />
+
+                    {/* 이전/다음 버튼 */}
+                    {allImages.length > 1 && (
+                      <>
+                        <button
+                          onClick={() =>
+                            setSelectedImageIndex(
+                              selectedImageIndex === 0
+                                ? allImages.length - 1
+                                : selectedImageIndex - 1
+                            )
+                          }
+                          className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded-full p-2 sm:p-3 transition-all backdrop-blur-sm"
+                        >
+                          <i className="ri-arrow-left-s-line w-5 h-5 sm:w-6 sm:h-6"></i>
+                        </button>
+                        <button
+                          onClick={() =>
+                            setSelectedImageIndex(
+                              selectedImageIndex === allImages.length - 1
+                                ? 0
+                                : selectedImageIndex + 1
+                            )
+                          }
+                          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded-full p-2 sm:p-3 transition-all backdrop-blur-sm"
+                        >
+                          <i className="ri-arrow-right-s-line w-5 h-5 sm:w-6 sm:h-6"></i>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="flex justify-center gap-2 p-6">
-                  {allImages.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedImageIndex(index)}
-                      className={`w-16 h-12 rounded overflow-hidden border-2 transition-all ${
-                        selectedImageIndex === index
-                          ? "border-white"
-                          : "border-transparent opacity-60"
-                      }`}
-                    >
-                      <img
-                        src={allImages[index]}
-                        alt={`썸네일 ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
-                  ))}
+
+                {/* 썸네일 네비게이션 */}
+                <div className="p-4 sm:p-6 bg-black bg-opacity-50 backdrop-blur-sm">
+                  <div className="flex justify-center gap-2 overflow-x-auto pb-2">
+                    <div className="flex gap-2 min-w-max">
+                      {allImages.map((image, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setSelectedImageIndex(index)}
+                          className={`flex-shrink-0 w-12 h-8 sm:w-16 sm:h-12 rounded overflow-hidden border-2 transition-all ${
+                            selectedImageIndex === index
+                              ? "border-white scale-110"
+                              : "border-transparent opacity-60 hover:opacity-80"
+                          }`}
+                        >
+                          <img
+                            src={image}
+                            alt={`썸네일 ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
+
+                {/* 키보드 네비게이션을 위한 이벤트 핸들러 */}
+                <div
+                  className="absolute inset-0 -z-10"
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setShowAllPhotos(false);
+                    } else if (e.key === "ArrowLeft" && allImages.length > 1) {
+                      setSelectedImageIndex(
+                        selectedImageIndex === 0
+                          ? allImages.length - 1
+                          : selectedImageIndex - 1
+                      );
+                    } else if (e.key === "ArrowRight" && allImages.length > 1) {
+                      setSelectedImageIndex(
+                        selectedImageIndex === allImages.length - 1
+                          ? 0
+                          : selectedImageIndex + 1
+                      );
+                    }
+                  }}
+                  tabIndex={0}
+                />
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-2 h-96">
+              <div className="grid grid-cols-4 gap-2">
+                {/* 메인 이미지 */}
                 <div className="col-span-2 row-span-2 relative">
                   <img
                     src={accommodation.images.thumbnail}
                     alt="숙소 메인 사진"
-                    className="w-full h-full object-cover cursor-pointer hover:brightness-90 transition-all"
+                    className="w-full h-full object-cover rounded-lg cursor-pointer hover:brightness-90 transition-all"
                     onClick={() => setShowAllPhotos(true)}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        "/placeholder-image.png";
+                    }}
                   />
                 </div>
+
+                {/* 서브 이미지들 */}
                 {accommodation.images.others.slice(0, 4).map((image, index) => (
-                  <div key={index} className="relative">
+                  <div
+                    key={index}
+                    className="relative aspect-square overflow-hidden rounded-lg"
+                  >
                     <img
                       src={image}
                       alt={`숙소 사진 ${index + 1}`}
@@ -345,24 +456,22 @@ function AccommodationDetailContent() {
                         setSelectedImageIndex(index + 1);
                         setShowAllPhotos(true);
                       }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          "/placeholder-image.png";
+                      }}
                     />
-                    {index === 3 && accommodation.images.others.length > 4 && (
-                      <div
-                        className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-white font-medium cursor-pointer hover:bg-opacity-40 transition-all"
-                        onClick={() => setShowAllPhotos(true)}
-                      >
-                        +{accommodation.images.others.length - 3}장 더보기
-                      </div>
-                    )}
                   </div>
                 ))}
+
+                {/* 사진 모두보기 버튼 */}
                 {allImages.length > 1 && (
                   <button
                     onClick={() => setShowAllPhotos(true)}
-                    className="absolute bottom-4 right-4 bg-white text-gray-900 px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all font-medium flex items-center gap-2"
+                    className="absolute bottom-4 right-4 bg-white text-gray-900 px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all font-medium flex items-center gap-2 backdrop-blur-sm bg-white/90"
                   >
-                    <i className="ri-gallery-line w-4 h-4"></i>
-                    사진 모두 보기
+                    <Grid className="w-4 h-4" />
+                    <span className="sm:inline">사진 모두 보기</span>
                   </button>
                 )}
               </div>

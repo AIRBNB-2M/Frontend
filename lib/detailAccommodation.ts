@@ -72,3 +72,9 @@ export interface PageResponseDto {
   current: number;
   size: number;
 }
+
+export interface AccommodationPriceResDto {
+  accommodationId: number;
+  date: string;
+  price: number;
+}
