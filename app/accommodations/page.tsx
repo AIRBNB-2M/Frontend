@@ -7,31 +7,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { fetchAccommodations } from "@/lib/http";
 import { useAuthStore } from "@/lib/authStore";
-
-interface FilteredAccListResDto {
-  category: string;
-  accommodationId: number;
-  title: string;
-  price: number;
-  avgRate: number;
-  avgCount: number;
-  imageUrls: string[];
-  isInWishlist: boolean;
-  wishlistId: number | null;
-}
-
-interface PageResponseDto {
-  contents: FilteredAccListResDto[];
-  pageNumList: number[];
-  hasPrev: boolean;
-  hasNext: boolean;
-  totalCount: number;
-  prevPage: number;
-  nextPage: number;
-  totalPage: number;
-  current: number;
-  size: number;
-}
+import { PageResponseDto } from "@/lib/detailAccommodation";
 
 function AccommodationsContent() {
   const searchParams = useSearchParams();
@@ -88,9 +64,9 @@ function AccommodationsContent() {
     location: "", // 지역 정보가 없으므로 빈 문자열
     price: acc.price,
     rating: acc.avgRate,
-    isInWishlist: acc.isInWishlist, // ✅ 올바른 prop 이름
-    wishlistId: acc.wishlistId, // ✅ 서버에서 받은 wishlistId 전달
-    wishlistName: "내 위시리스트", // ✅ 기본값 (실제로는 서버에서 제공해야 함)
+    isInWishlist: acc.isInWishlist,
+    wishlistId: acc.wishlistId,
+    wishlistName: acc.wishlistName,
   }));
 
   // 페이지 변경 핸들러 - 기존 검색 조건 유지

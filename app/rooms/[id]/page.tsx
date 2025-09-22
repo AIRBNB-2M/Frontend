@@ -16,6 +16,8 @@ import "react-datepicker/dist/react-datepicker.css";
 import AirbnbDateRangePicker from "@/components/DateRangePicker";
 import { differenceInDays } from "date-fns";
 import { useAuthStore } from "@/lib/authStore";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/Toast";
 
 function AccommodationDetailContent() {
   const params = useParams();
@@ -46,6 +48,8 @@ function AccommodationDetailContent() {
   // 위시리스트 모달 관련 상태
   const [showWishlistModal, setShowWishlistModal] = useState(false);
 
+  const { toast, showSuccess, showError, hideToast } = useToast();
+
   const countedGuests = adults + children; // 최대 인원 제한에 포함되는 수
   const maxInfants = 5; // 유아 상한
 
@@ -62,6 +66,7 @@ function AccommodationDetailContent() {
         setAccommodation(data);
         setIsInWishlist(data.isInWishlist || false);
         setWishlistId(data.wishlistId || null);
+        setWishlistName(data.wishlistName || "");
         setLoading(false);
       })
       .catch((err) => {
@@ -112,6 +117,8 @@ function AccommodationDetailContent() {
   const handleToggleLike = async () => {
     try {
       if (isInWishlist && wishlistId) {
+        const wishlistNameForToast = wishlistName;
+        console.log(wishlistNameForToast);
         // 찜 해제
         await removeAccommodationFromWishlist(
           wishlistId,
@@ -120,6 +127,8 @@ function AccommodationDetailContent() {
         setIsInWishlist(false);
         setWishlistId(null);
         setWishlistName("");
+
+        showSuccess(`"${wishlistNameForToast}"에서 삭제되었습니다`);
       } else {
         // 찜 추가 - 위시리스트 선택 모달 열기
         try {
@@ -136,7 +145,7 @@ function AccommodationDetailContent() {
       }
     } catch (err: any) {
       console.error("위시리스트 토글 실패", err);
-      alert("잠시 후 다시 시도해주세요.");
+      showError("오류가 발생했습니다. 다시 시도해주세요.");
     }
   };
 
@@ -148,6 +157,7 @@ function AccommodationDetailContent() {
     setIsInWishlist(true);
     setWishlistId(selectedWishlistId);
     setWishlistName(selectedWishlistName);
+    showSuccess(`"${selectedWishlistName}"에 저장되었습니다`);
   };
 
   // 숙박 일수 계산
@@ -728,6 +738,14 @@ function AccommodationDetailContent() {
         onClose={() => setShowWishlistModal(false)}
         accommodationId={Number(accommodationId)}
         onSuccess={handleWishlistSuccess}
+      />
+
+      {/* Toast 컴포넌트 */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
       />
     </>
   );

@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import WishlistModal from "./WishlistModal";
+import { useToast } from "@/hooks/useToast";
+import Toast from "./Toast";
 
 interface PropertyCardProps {
   id: string;
@@ -16,7 +18,7 @@ interface PropertyCardProps {
   rating?: number; // optional
   isInWishlist?: boolean;
   wishlistId?: number | null;
-  wishlistName?: string;
+  wishlistName?: string | null;
   onWishlistChange?: () => void;
 }
 
@@ -29,12 +31,15 @@ export default function PropertyCard({
   rating,
   isInWishlist = false,
   wishlistId = null,
+  wishlistName,
   onWishlistChange,
 }: PropertyCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [localIsInWishlist, setLocalIsInWishlist] = useState(isInWishlist);
   const [localWishlistId, setLocalWishlistId] = useState(wishlistId);
+  const [localWishlistName, setLocalWishlistName] = useState(wishlistName);
   const [showWishlistModal, setShowWishlistModal] = useState(false);
+  const { toast, showSuccess, showError, hideToast } = useToast();
   const router = useRouter();
 
   const nextImage = (e: React.MouseEvent) => {
@@ -53,9 +58,17 @@ export default function PropertyCard({
 
     try {
       if (localIsInWishlist && localWishlistId) {
+        // 삭제 전에 위시리스트 이름 저장
+        const wishlistNameForToast = localWishlistName;
+
         await removeAccommodationFromWishlist(localWishlistId, Number(id));
+
         setLocalIsInWishlist(false);
         setLocalWishlistId(null);
+        setLocalWishlistName("위시리스트");
+
+        showSuccess(`"${wishlistNameForToast}"에서 삭제되었습니다`);
+
         onWishlistChange?.();
       } else {
         try {
@@ -71,12 +84,17 @@ export default function PropertyCard({
       }
     } catch (err: any) {
       console.error("위시리스트 토글 실패", err);
+      showError("오류가 발생했습니다. 다시 시도해주세요.");
     }
   };
 
   const handleWishlistSuccess = (wishlistId: number, wishlistName: string) => {
     setLocalIsInWishlist(true);
     setLocalWishlistId(wishlistId);
+    setLocalWishlistName(wishlistName);
+
+    // 추가 완료 토스트 표시
+    showSuccess(`"${wishlistName}"에 저장되었습니다`);
     onWishlistChange?.();
   };
 
@@ -165,6 +183,14 @@ export default function PropertyCard({
         onClose={() => setShowWishlistModal(false)}
         accommodationId={Number(id)}
         onSuccess={handleWishlistSuccess}
+      />
+
+      {/* Toast 컴포넌트 */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
       />
     </>
   );

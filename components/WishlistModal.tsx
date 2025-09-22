@@ -6,7 +6,7 @@ import {
   fetchWishlists,
 } from "@/lib/http";
 import { WishlistsResDto, WishlistCreateResDto } from "@/lib/wishlistTypes";
-import { ChevronRight, Heart, Plus, X } from "lucide-react";
+import { ChevronRight, Heart, Plus, X, Image as ImageIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -205,16 +205,49 @@ export default function WishlistModal({
                 onClick={() => handleSelectWishlist(wishlist.wishlistId)}
                 className="w-full p-3 text-left rounded-lg border border-gray-200 hover:border-pink-300 hover:bg-pink-50 transition-colors"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium text-gray-900">
+                <div className="flex items-center gap-3">
+                  {/* 썸네일 이미지 */}
+                  <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                    {wishlist.thumbnailUrl ? (
+                      <img
+                        src={wishlist.thumbnailUrl}
+                        alt={`${wishlist.name} 썸네일`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // 이미지 로드 실패 시 기본 아이콘 표시
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `
+                              <div class="w-full h-full flex items-center justify-center">
+                                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                              </div>
+                            `;
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ImageIcon className="w-6 h-6 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 위시리스트 정보 */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-gray-900 truncate">
                       {wishlist.name}
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 mt-1">
                       저장된 숙소 {wishlist.savedAccommodations}개
                     </p>
                   </div>
-                  <ChevronRight className="text-gray-400 w-4 h-4" />
+
+                  {/* 화살표 아이콘 */}
+                  <ChevronRight className="text-gray-400 w-5 h-5 flex-shrink-0" />
                 </div>
               </button>
             ))}
@@ -226,12 +259,17 @@ export default function WishlistModal({
                 className="w-full p-3 text-left rounded-lg border-2 border-dashed border-gray-300 hover:border-pink-300 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                    <Plus className="text-gray-600 w-4 h-4" />
+                  <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Plus className="text-gray-600 w-6 h-6" />
                   </div>
-                  <span className="font-medium text-gray-600">
-                    새 위시리스트 만들기
-                  </span>
+                  <div className="flex-1">
+                    <span className="font-medium text-gray-600">
+                      새 위시리스트 만들기
+                    </span>
+                    <p className="text-sm text-gray-500 mt-1">
+                      나만의 위시리스트를 만들어보세요
+                    </p>
+                  </div>
                 </div>
               </button>
             )}
@@ -298,13 +336,18 @@ export default function WishlistModal({
             {/* 빈 상태 */}
             {wishlists.length === 0 && !showCreateForm && (
               <div className="text-center py-8">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Heart className="w-8 h-8 text-gray-400" />
                 </div>
-                <p className="text-gray-600 mb-4">아직 위시리스트가 없습니다</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  첫 위시리스트를 만들어보세요
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  마음에 드는 숙소들을 모아보세요
+                </p>
                 <button
                   onClick={() => setShowCreateForm(true)}
-                  className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition-colors text-sm"
+                  className="bg-pink-500 text-white px-6 py-2 rounded-lg hover:bg-pink-600 transition-colors"
                 >
                   첫 위시리스트 만들기
                 </button>

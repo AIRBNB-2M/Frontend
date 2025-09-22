@@ -203,6 +203,7 @@ export default function RecentViewsPage() {
                           rating={accommodation.avgRate}
                           isInWishlist={accommodation.isInWishlist}
                           wishlistId={accommodation.wishlistId}
+                          wishlistName={accommodation.wishlistName}
                           onWishlistChange={handleWishlistChange}
                         />
                       ))}

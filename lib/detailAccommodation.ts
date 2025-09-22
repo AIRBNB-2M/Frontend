@@ -13,6 +13,7 @@ export interface DetailAccommodationResDto {
   price: number;
   isInWishlist: boolean;
   wishlistId: number | null;
+  wishlistName: string | null;
   avgRate: number;
   images: {
     thumbnail: string;
@@ -38,9 +39,36 @@ export interface ViewHistoryDto {
   thumbnailUrl: string;
   isInWishlist: boolean;
   wishlistId: number | null;
+  wishlistName: string | null;
 }
 
 export interface ViewHistoryResDto {
   date: string;
   accommodations: ViewHistoryDto[];
+}
+
+export interface FilteredAccListResDto {
+  category: string;
+  accommodationId: number;
+  title: string;
+  price: number;
+  avgRate: number;
+  avgCount: number;
+  imageUrls: string[];
+  isInWishlist: boolean;
+  wishlistId: number | null;
+  wishlistName: string | null;
+}
+
+export interface PageResponseDto {
+  contents: FilteredAccListResDto[];
+  pageNumList: number[];
+  hasPrev: boolean;
+  hasNext: boolean;
+  totalCount: number;
+  prevPage: number;
+  nextPage: number;
+  totalPage: number;
+  current: number;
+  size: number;
 }
