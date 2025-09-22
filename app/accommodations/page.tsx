@@ -49,6 +49,13 @@ function AccommodationsContent() {
     setError("");
 
     const params = Object.fromEntries(searchParams.entries());
+
+    // area 파라미터가 있으면 areaCode로 변환
+    if (params.area) {
+      params.areaCode = params.area;
+      delete params.area; // 원본 area 파라미터 삭제
+    }
+
     // 페이지 번호가 없으면 1페이지로 설정
     if (!params.page) {
       params.page = "0";
@@ -89,20 +96,7 @@ function AccommodationsContent() {
   // 페이지 변경 핸들러 - 기존 검색 조건 유지
   const handlePageChange = (page: number) => {
     const newSearchParams = new URLSearchParams(searchParams.toString());
-    newSearchParams.set("page", (page - 1).toString());
-    router.push(`/accommodations?${newSearchParams.toString()}`);
-  };
-
-  // 카테고리 변경 핸들러 - 기존 검색 조건 유지
-  const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category);
-    const newSearchParams = new URLSearchParams(searchParams.toString());
-    if (category === "all") {
-      newSearchParams.delete("category");
-    } else {
-      newSearchParams.set("category", category);
-    }
-    newSearchParams.set("page", "0"); // 카테고리 변경 시 1페이지로 리셋
+    newSearchParams.set("page", page.toString());
     router.push(`/accommodations?${newSearchParams.toString()}`);
   };
 
@@ -205,7 +199,7 @@ function AccommodationsContent() {
                     ) : (
                       <button
                         key={`page-${pageNum}`}
-                        onClick={() => handlePageChange(pageNum)}
+                        onClick={() => handlePageChange(pageNum - 1)}
                         className={`px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
                           pageNum === pageData.current + 1
                             ? "bg-pink-500 text-white border-pink-500"

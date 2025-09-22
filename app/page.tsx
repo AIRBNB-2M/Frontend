@@ -79,7 +79,7 @@ function HomeContent() {
   // 지역 인기 숙소 헤더 클릭 시 이동
   const handleAreaHeaderClick = (areaCode: string) => {
     if (!areaCode) return;
-    router.push(`/accommodations?areaCode=${encodeURIComponent(areaCode)}`);
+    router.push(`/accommodations?area=${encodeURIComponent(areaCode)}`);
   };
 
   return (

@@ -77,7 +77,7 @@ export default function SearchHeader() {
   // 검색 버튼 클릭 시에만 실행
   const handleSearch = () => {
     const params = new URLSearchParams();
-    if (area) params.set("areaCode", area);
+    if (area) params.set("area", area);
     if (amenities.length > 0) params.set("amenities", amenities.join(","));
     if (priceGoe) params.set("priceGoe", priceGoe);
     if (priceLoe) params.set("priceLoe", priceLoe);
