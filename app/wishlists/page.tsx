@@ -8,6 +8,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { createWishlist, deleteWishlist, fetchWishlists } from "@/lib/http";
 import { WishlistCreateResDto, WishlistsResDto } from "@/lib/wishlistTypes";
 import { Trash } from "lucide-react";
+import AuthCheckingPage from "@/components/AuthCheckingPage";
 
 export default function WishlistsPage() {
   const [wishlists, setWishlists] = useState<WishlistsResDto[]>([]);
@@ -151,18 +152,7 @@ export default function WishlistsPage() {
   };
 
   if (!authChecked) {
-    return (
-      <div className="min-h-screen bg-white">
-        <Header />
-        <RefreshAccessTokenOnMount />
-        <main className="max-w-screen-2xl mx-auto px-6 py-8">
-          <div className="text-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
-            <p className="text-gray-600">인증 확인 중...</p>
-          </div>
-        </main>
-      </div>
-    );
+    return <AuthCheckingPage />;
   }
 
   if (!accessToken) {

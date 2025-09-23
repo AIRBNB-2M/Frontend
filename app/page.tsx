@@ -8,6 +8,7 @@ import PropertyCard from "@/components/PropertyCard";
 import { useState, useEffect } from "react";
 import { fetchAccommodations } from "@/lib/http";
 import { useAuthStore } from "@/lib/authStore";
+import Loader from "@/components/Loader";
 
 function HomeContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -102,7 +103,7 @@ function HomeContent() {
       </div>
       <main className="max-w-screen-2xl mx-auto px-6 py-8">
         {loading ? (
-          <div className="text-center py-10">로딩 중...</div>
+          <Loader />
         ) : error ? (
           <div className="text-center text-red-500 py-10">{error}</div>
         ) : (
