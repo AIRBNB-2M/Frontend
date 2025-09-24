@@ -74,23 +74,13 @@ export default function Header() {
                   {isLoggedIn ? (
                     <>
                       <Link
-                        href="/profile"
+                        href="/users/profile"
                         className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setIsUserMenuOpen(false)}
                       >
                         <div className="flex items-center gap-3">
                           <i className="ri-user-line w-4 h-4"></i>
                           프로필
-                        </div>
-                      </Link>
-                      <Link
-                        href="/bookings"
-                        className="block px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsUserMenuOpen(false)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <i className="ri-calendar-line w-4 h-4"></i>
-                          예약 내역
                         </div>
                       </Link>
                       <Link

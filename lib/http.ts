@@ -10,6 +10,7 @@ import {
   WishlistDetailResDto,
   WishlistsResDto,
 } from "./wishlistTypes";
+import { DefaultProfileResDto } from "./users";
 
 const http = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
@@ -152,6 +153,11 @@ http.interceptors.response.use(
     }
   }
 );
+
+export async function fetchMyProfile(): Promise<DefaultProfileResDto> {
+  const response = await http.get("/api/guests/me");
+  return response.data;
+}
 
 // 최근 조회 내역 조회
 export async function fetchRecentViews(): Promise<ViewHistoryResDto[]> {
