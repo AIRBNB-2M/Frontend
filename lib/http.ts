@@ -150,6 +150,13 @@ http.interceptors.response.use(
   }
 );
 
+/**
+ * 이메일 인증 요청
+ */
+export async function sendEmailVerification(): Promise<void> {
+  await http.post("/api/auth/email/verify");
+}
+
 // 프로필 업데이트 함수
 export async function updateMyProfile(
   updateData: ProfileUpdateRequest & { profileImageFile?: File | null }

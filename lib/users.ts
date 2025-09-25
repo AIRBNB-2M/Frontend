@@ -3,6 +3,7 @@ export interface DefaultProfileResDto {
   profileImageUrl?: string;
   createdDate: string;
   aboutMe?: string;
+  isEmailVerified: boolean;
 }
 
 // 프로필 업데이트 요청 타입 (MultipartFile 지원)

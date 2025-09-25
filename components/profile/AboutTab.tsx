@@ -1,10 +1,11 @@
 "use client";
 
-import { Calendar } from "lucide-react";
+import { Calendar, Mail, CheckCircle, AlertCircle, X } from "lucide-react";
 import { format } from "date-fns";
 import ProfileImageEditor from "./ProfileImageEditor";
 import { DefaultProfileResDto, ProfileUpdateResponse } from "@/lib/users";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { sendEmailVerification } from "@/lib/http";
 
 export interface AboutTabProps {
   profile: DefaultProfileResDto;
@@ -28,6 +29,70 @@ export default function AboutTab({ profile, onProfileUpdate }: AboutTabProps) {
     profile.profileImageUrl || null
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [isEmailVerificationLoading, setIsEmailVerificationLoading] =
+    useState(false);
+  const [emailVerificationMessage, setEmailVerificationMessage] = useState<
+    string | null
+  >(null);
+  const [emailVerificationStatus, setEmailVerificationStatus] = useState<
+    "success" | "failed" | null
+  >(null);
+
+  // URL 파라미터에서 이메일 인증 결과 확인
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const emailVerifyStatus = urlParams.get("emailVerify");
+
+    if (emailVerifyStatus === "success") {
+      setEmailVerificationStatus("success");
+      setEmailVerificationMessage("이메일 인증이 완료되었습니다!");
+      // URL 파라미터만 제거, 메시지는 사용자가 직접 닫도록
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, "", newUrl);
+    } else if (emailVerifyStatus === "failed") {
+      setEmailVerificationStatus("failed");
+      setEmailVerificationMessage(
+        "이메일 인증에 실패했습니다. 다시 시도해주세요."
+      );
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, []);
+
+  // 메시지 닫기 함수
+  const handleCloseMessage = () => {
+    setEmailVerificationMessage(null);
+    setEmailVerificationStatus(null);
+  };
+
+  // 이메일 인증 요청
+  const handleSendEmailVerification = async () => {
+    try {
+      setIsEmailVerificationLoading(true);
+      setEmailVerificationMessage(null);
+
+      await sendEmailVerification();
+
+      setEmailVerificationStatus("success");
+      setEmailVerificationMessage(
+        "가입하신 이메일로 인증 메일을 발송했습니다. 메일함을 확인해주세요."
+      );
+
+      // 사용자가 직접 메시지를 닫도록
+    } catch (error: any) {
+      console.error("이메일 인증 요청 실패:", error);
+      setEmailVerificationStatus("failed");
+      setEmailVerificationMessage(
+        "이메일 인증 요청에 실패했습니다. 다시 시도해주세요."
+      );
+
+      // 사용자가 직접 메시지를 닫도록
+    } finally {
+      setIsEmailVerificationLoading(false);
+    }
+  };
 
   // 편집 모드 시작
   const handleEdit = () => {
@@ -120,6 +185,75 @@ export default function AboutTab({ profile, onProfileUpdate }: AboutTabProps) {
         )}
       </div>
 
+      {/* 이메일 인증 상태 메시지 */}
+      {emailVerificationMessage && (
+        <div
+          className={`mb-6 p-4 rounded-lg flex items-center justify-between ${
+            emailVerificationStatus === "success"
+              ? "bg-green-50 border border-green-200"
+              : "bg-red-50 border border-red-200"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            {emailVerificationStatus === "success" ? (
+              <CheckCircle size={20} className="text-green-600" />
+            ) : (
+              <AlertCircle size={20} className="text-red-600" />
+            )}
+            <span
+              className={`text-sm font-medium ${
+                emailVerificationStatus === "success"
+                  ? "text-green-800"
+                  : "text-red-800"
+              }`}
+            >
+              {emailVerificationMessage}
+            </span>
+          </div>
+          <button
+            onClick={handleCloseMessage}
+            className={`ml-4 p-1 rounded-full hover:bg-opacity-20 ${
+              emailVerificationStatus === "success"
+                ? "hover:bg-green-600"
+                : "hover:bg-red-600"
+            }`}
+          >
+            <X
+              size={16}
+              className={
+                emailVerificationStatus === "success"
+                  ? "text-green-600"
+                  : "text-red-600"
+              }
+            />
+          </button>
+        </div>
+      )}
+
+      {/* 이메일 인증 섹션 */}
+      {!profile.isEmailVerified && (
+        <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-start gap-3">
+            <Mail size={20} className="text-yellow-600 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-yellow-800 mb-1">
+                이메일 인증이 필요합니다
+              </h3>
+              <p className="text-sm text-yellow-700 mb-3">
+                계정 보안을 위해 이메일 인증을 완료해주세요.
+              </p>
+              <button
+                onClick={handleSendEmailVerification}
+                disabled={isEmailVerificationLoading}
+                className="px-4 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 disabled:bg-yellow-400 disabled:cursor-not-allowed transition-colors"
+              >
+                {isEmailVerificationLoading ? "발송 중..." : "인증 이메일 발송"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 프로필 섹션 */}
       <div className="flex items-start gap-6 mb-12">
         <ProfileImageEditor
@@ -149,9 +283,21 @@ export default function AboutTab({ profile, onProfileUpdate }: AboutTabProps) {
               />
             </div>
           ) : (
-            <h3 className="text-3xl font-bold text-gray-900 mb-4">
-              {profile.name}
-            </h3>
+            <div className="mb-4">
+              <div className="flex items-center gap-3 mb-2">
+                <h3 className="text-3xl font-bold text-gray-900">
+                  {profile.name}
+                </h3>
+                {profile.isEmailVerified && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-full">
+                    <CheckCircle size={14} className="text-green-600" />
+                    <span className="text-xs font-medium text-green-800">
+                      이메일 인증됨
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           <div className="flex items-center gap-6 text-sm text-gray-600">
