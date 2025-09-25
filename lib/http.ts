@@ -10,7 +10,11 @@ import {
   WishlistDetailResDto,
   WishlistsResDto,
 } from "./wishlistTypes";
-import { DefaultProfileResDto } from "./users";
+import {
+  DefaultProfileResDto,
+  ProfileUpdateRequest,
+  ProfileUpdateResponse,
+} from "./users";
 
 const http = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
@@ -24,14 +28,6 @@ const REQUIRED_AUTH_ENDPOINTS = ["/api/wishlists", "/api/wishlists/"];
 // 경로가 위시리스트 관련 API인지 확인하는 함수
 function isRequiredAuthEndpoint(url: string): boolean {
   return REQUIRED_AUTH_ENDPOINTS.some((endpoint) => url.includes(endpoint));
-}
-
-// 클라이언트 사이드에서만 라우팅 처리
-function redirectToSignup() {
-  if (typeof window !== "undefined") {
-    // Next.js router를 사용할 수 없는 상황을 대비해 window.location 사용
-    window.location.href = "/signup";
-  }
 }
 
 function redirectToLogin() {
@@ -153,6 +149,34 @@ http.interceptors.response.use(
     }
   }
 );
+
+// 프로필 업데이트 함수
+export async function updateMyProfile(
+  updateData: ProfileUpdateRequest & { profileImageFile?: File | null }
+): Promise<ProfileUpdateResponse> {
+  const formData = new FormData();
+
+  const editProfileRequest = {
+    name: updateData.name,
+    aboutMe: updateData.aboutMe,
+    isProfileImageChanged: updateData.isProfileImageChanged,
+  };
+  formData.append(
+    "editProfileRequest",
+    new Blob([JSON.stringify(editProfileRequest)], { type: "application/json" })
+  );
+
+  // 프로필 이미지 파일이 있으면 추가
+  if (updateData.profileImageFile) {
+    formData.append("profileImage", updateData.profileImageFile);
+  }
+
+  const response = await http.put("/api/guests/me", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+  return response.data;
+}
 
 export async function fetchMyProfile(): Promise<DefaultProfileResDto> {
   const response = await http.get("/api/guests/me");

@@ -3,82 +3,127 @@
 import { Calendar } from "lucide-react";
 import { format } from "date-fns";
 import ProfileImageEditor from "./ProfileImageEditor";
-import { DefaultProfileResDto } from "@/lib/users";
-import { Dispatch, SetStateAction } from "react";
+import { DefaultProfileResDto, ProfileUpdateResponse } from "@/lib/users";
+import { useState } from "react";
 
 export interface AboutTabProps {
   profile: DefaultProfileResDto;
-  editData: {
+  onProfileUpdate: (updateData: {
     name: string;
     aboutMe: string;
-    profileImage: string;
-  };
-  setEditData: Dispatch<
-    SetStateAction<{
-      name: string;
-      aboutMe: string;
-      profileImage: string;
-    }>
-  >;
-  imagePreview: string | null;
-  setImagePreview: Dispatch<SetStateAction<string | null>>;
-  isEditing: boolean;
-  setIsEditing: Dispatch<SetStateAction<boolean>>;
-  onSave: () => void | Promise<void>;
+    profileImageFile?: File | null;
+    isProfileImageChanged: boolean;
+  }) => Promise<ProfileUpdateResponse>;
 }
 
-export default function AboutTab({
-  profile,
-  editData,
-  setEditData,
-  imagePreview,
-  setImagePreview,
-  isEditing,
-  setIsEditing,
-  onSave,
-}: AboutTabProps) {
+export default function AboutTab({ profile, onProfileUpdate }: AboutTabProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    name: profile.name,
+    aboutMe: profile.aboutMe || "",
+  });
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [currentProfileImage, setCurrentProfileImage] = useState<string | null>(
+    profile.profileImageUrl || null
+  );
+  const [isLoading, setIsLoading] = useState(false);
+
+  // 편집 모드 시작
+  const handleEdit = () => {
+    setIsEditing(true);
+    setEditData({
+      name: profile.name,
+      aboutMe: profile.aboutMe || "",
+    });
+    setProfileImageFile(null);
+    setImagePreview(null);
+  };
+
+  // 편집 취소
   const handleCancel = () => {
     setIsEditing(false);
     setEditData({
       name: profile.name,
       aboutMe: profile.aboutMe || "",
-      profileImage: profile.profileImageUrl || "",
     });
-    setImagePreview(profile.profileImageUrl || null);
+    setProfileImageFile(null);
+    setImagePreview(null);
+    setCurrentProfileImage(profile.profileImageUrl || null);
   };
 
+  // 저장
+  const handleSave = async () => {
+    try {
+      setIsLoading(true);
+
+      const isProfileImageChanged =
+        profileImageFile !== null ||
+        currentProfileImage !== profile.profileImageUrl;
+
+      const response: ProfileUpdateResponse = await onProfileUpdate({
+        name: editData.name.trim(),
+        aboutMe: editData.aboutMe.trim(),
+        profileImageFile: profileImageFile ?? undefined,
+        isProfileImageChanged,
+      });
+
+      // 저장 후 상태 초기화
+      setIsEditing(false);
+      setProfileImageFile(null);
+      setImagePreview(null);
+      setCurrentProfileImage(response.profileImageUrl || null);
+      setEditData({
+        name: response.name,
+        aboutMe: response.aboutMe || "",
+      });
+    } catch (error) {
+      console.error("프로필 저장 실패:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 이미지 선택 시
   const handleImageChange = (file: File) => {
+    setProfileImageFile(file);
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setImagePreview(result);
-      setEditData((prev) => ({ ...prev, profileImage: result }));
-    };
+    reader.onload = (e) => setImagePreview(e.target?.result as string);
     reader.readAsDataURL(file);
   };
 
+  // 이미지 제거
   const handleRemoveImage = () => {
+    setProfileImageFile(null);
     setImagePreview(null);
-    setEditData((prev) => ({ ...prev, profileImage: "" }));
+    setCurrentProfileImage(null); // 즉시 기본 아바타로 변경
   };
+
+  const hasChanges =
+    editData.name !== profile.name ||
+    editData.aboutMe !== (profile.aboutMe || "") ||
+    profileImageFile !== null ||
+    currentProfileImage !== profile.profileImageUrl;
 
   return (
     <div className="bg-white rounded-2xl p-8">
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-2xl font-semibold text-gray-900">자기소개</h2>
-        <button
-          onClick={() => setIsEditing(!isEditing)}
-          className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
-        >
-          {isEditing ? "취소" : "수정"}
-        </button>
+        {!isEditing && (
+          <button
+            onClick={handleEdit}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            수정
+          </button>
+        )}
       </div>
 
-      {/* 프로필 정보 */}
+      {/* 프로필 섹션 */}
       <div className="flex items-start gap-6 mb-12">
         <ProfileImageEditor
-          profileImage={editData.profileImage}
+          profileImage={currentProfileImage}
           name={editData.name}
           isEditing={isEditing}
           imagePreview={imagePreview}
@@ -88,16 +133,23 @@ export default function AboutTab({
 
         <div className="flex-1">
           {isEditing ? (
-            <input
-              type="text"
-              value={editData.name}
-              onChange={(e) =>
-                setEditData((prev) => ({ ...prev, name: e.target.value }))
-              }
-              className="w-full text-3xl font-bold text-gray-900 mb-2 border-b border-gray-300 focus:outline-none"
-            />
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                이름
+              </label>
+              <input
+                type="text"
+                value={editData.name}
+                onChange={(e) =>
+                  setEditData((prev) => ({ ...prev, name: e.target.value }))
+                }
+                className="w-full text-2xl font-bold text-gray-900 border-b-2 border-gray-200 focus:border-gray-900 outline-none py-2 bg-transparent"
+                placeholder="이름을 입력해주세요"
+                maxLength={50}
+              />
+            </div>
           ) : (
-            <h3 className="text-3xl font-bold text-gray-900 mb-2">
+            <h3 className="text-3xl font-bold text-gray-900 mb-4">
               {profile.name}
             </h3>
           )}
@@ -109,52 +161,59 @@ export default function AboutTab({
                 가입일: {format(new Date(profile.createdDate), "yyyy-MM")}
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-xs">✓</span>
-              </div>
-              <span>보안 인증 완료</span>
-            </div>
           </div>
         </div>
       </div>
 
-      {/* 자기소개 내용 */}
-      {isEditing ? (
-        <div className="space-y-4 mb-8">
-          <textarea
-            value={editData.aboutMe}
-            onChange={(e) =>
-              setEditData((prev) => ({ ...prev, aboutMe: e.target.value }))
-            }
-            rows={4}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none text-lg"
-            placeholder="자신에 대해 간단히 소개해주세요..."
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={onSave}
-              className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black"
-            >
-              저장
-            </button>
-            <button
-              onClick={handleCancel}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-            >
-              취소
-            </button>
+      {/* 자기소개 */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900">소개</h3>
+        {isEditing ? (
+          <div className="space-y-4">
+            <textarea
+              value={editData.aboutMe}
+              onChange={(e) =>
+                setEditData((prev) => ({ ...prev, aboutMe: e.target.value }))
+              }
+              rows={6}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none text-base leading-relaxed"
+              placeholder="자신에 대해 간단히 소개해주세요."
+              maxLength={500}
+            />
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>{editData.aboutMe.length}/500</span>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={handleSave}
+                disabled={!hasChanges || isLoading}
+                className="px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-black disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                {isLoading ? "저장 중..." : "저장"}
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={isLoading}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:cursor-not-allowed transition-colors"
+              >
+                취소
+              </button>
+            </div>
           </div>
-        </div>
-      ) : profile.aboutMe ? (
-        <p className="text-gray-800 text-lg leading-relaxed mb-8">
-          {profile.aboutMe}
-        </p>
-      ) : (
-        <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center mb-8">
-          <p className="text-gray-500 mb-4">자기소개를 추가해보세요.</p>
-        </div>
-      )}
+        ) : profile.aboutMe ? (
+          <p className="text-gray-800 text-base leading-relaxed whitespace-pre-wrap">
+            {profile.aboutMe}
+          </p>
+        ) : (
+          <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center">
+            <p className="text-gray-500 mb-2">아직 자기소개가 없습니다.</p>
+            <p className="text-gray-400 text-sm">
+              수정 버튼을 눌러 자신을 소개해보세요.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

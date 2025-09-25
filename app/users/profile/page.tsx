@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { Briefcase, CalendarCheck, Link, MessageCircle } from "lucide-react";
 import { useAuthStore } from "@/lib/authStore";
-import { DefaultProfileResDto } from "@/lib/users";
-import { fetchMyProfile } from "@/lib/http";
+import { DefaultProfileResDto, ProfileUpdateResponse } from "@/lib/users";
+import { fetchMyProfile, updateMyProfile } from "@/lib/http";
 import Loader from "@/components/Loader";
 import Header from "@/components/Header";
 import AboutTab from "@/components/profile/AboutTab";
@@ -15,66 +15,51 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("about");
-  const [isEditingAbout, setIsEditingAbout] = useState(false);
-  const [editData, setEditData] = useState({
-    name: "",
-    aboutMe: "",
-    profileImage: "",
-  });
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  const handleProfileUpdate = async (updateData: {
+    name: string;
+    aboutMe: string;
+    profileImageFile?: File | null;
+    isProfileImageChanged: boolean;
+  }): Promise<ProfileUpdateResponse> => {
+    const updated = await updateMyProfile(updateData);
+
+    setProfile((prev) =>
+      prev ? { ...prev, ...updated, createdDate: prev.createdDate } : null
+    );
+
+    return updated;
+  };
 
   useEffect(() => {
     if (!isTokenInitialized) return;
 
-    setLoading(true);
-    setError("");
-
-    fetchMyProfile()
-      .then((data: DefaultProfileResDto) => {
+    const loadProfile = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const data = await fetchMyProfile();
         setProfile(data);
-        console.log(data);
-        setEditData((prev) => ({
-          ...prev, // 기존 profileImage 유지
-          name: data.name,
-          aboutMe: data.aboutMe || "",
-          profileImage:
-            data.profileImageUrl ??
-            "https://ui-avatars.com/api/?name=Guest&background=random",
-        }));
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err: any) {
         console.error("프로필 로딩 실패:", err);
         setError(err.message || "프로필 정보를 불러오지 못했습니다.");
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    loadProfile();
   }, [isTokenInitialized]);
-
-  const handleSaveAbout = async () => {
-    try {
-      // 실제 구현에서는 이미지 업로드 API도 호출
-      setProfile((prev) =>
-        prev
-          ? {
-              ...prev,
-              aboutMe: editData.aboutMe,
-              profileImageUrl: editData.profileImage || prev.profileImageUrl,
-            }
-          : null
-      );
-      setIsEditingAbout(false);
-    } catch (error) {
-      console.error("프로필 수정 실패:", error);
-    }
-  };
 
   if (loading) return <Loader />;
 
   if (error || !profile)
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">
-        <p>프로필 정보를 불러올 수 없습니다.</p>
-      </div>
+      <>
+        <Header />
+        <div className="min-h-screen flex items-center justify-center text-gray-500">
+          <p>프로필 정보를 불러올 수 없습니다.</p>
+        </div>
+      </>
     );
 
   return (
@@ -106,7 +91,6 @@ export default function ProfilePage() {
                       <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center">
                         <img
                           src={
-                            imagePreview ||
                             profile.profileImageUrl ||
                             `https://ui-avatars.com/api/?name=${encodeURIComponent(
                               profile.name || "Guest"
@@ -182,13 +166,7 @@ export default function ProfilePage() {
               {activeTab === "about" && (
                 <AboutTab
                   profile={profile}
-                  editData={editData}
-                  setEditData={setEditData}
-                  imagePreview={imagePreview}
-                  setImagePreview={setImagePreview}
-                  isEditing={isEditingAbout}
-                  setIsEditing={setIsEditingAbout}
-                  onSave={handleSaveAbout}
+                  onProfileUpdate={handleProfileUpdate}
                 />
               )}
 
