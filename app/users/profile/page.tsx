@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Briefcase, CalendarCheck, Link, MessageCircle } from "lucide-react";
+import { Briefcase, CalendarCheck, Luggage, MessageCircle } from "lucide-react";
 import { useAuthStore } from "@/lib/authStore";
 import { DefaultProfileResDto, ProfileUpdateResponse } from "@/lib/users";
 import { fetchMyProfile, updateMyProfile } from "@/lib/http";
 import Loader from "@/components/Loader";
 import Header from "@/components/Header";
 import AboutTab from "@/components/profile/AboutTab";
+import Link from "next/link";
 
 export default function ProfilePage() {
   const { accessToken, isTokenInitialized } = useAuthStore();
@@ -178,8 +179,8 @@ export default function ProfilePage() {
                   </h2>
 
                   <div className="text-center py-16">
-                    <div className="w-24 h-24 mx-auto mb-6">
-                      <span className="text-8xl">🧳</span>
+                    <div className="flex items-center justify-center w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full">
+                      <Luggage className="w-12 h-12 text-gray-500" />
                     </div>
                     <p className="text-gray-600 text-lg mb-6">
                       에어비앤비에서 첫 여행을 마치면 여기에 이전 예약 내역이
@@ -189,7 +190,7 @@ export default function ProfilePage() {
                       href="/"
                       className="inline-block px-6 py-3 bg-pink-500 text-white rounded-lg hover:bg-pink-600 font-medium"
                     >
-                      여행 예약
+                      예약하러 가기
                     </Link>
                   </div>
                 </div>
@@ -198,15 +199,6 @@ export default function ProfilePage() {
               {/* 내가 작성한 후기 탭 내용 */}
               {activeTab === "reviews" && (
                 <div className="bg-white rounded-2xl p-8">
-                  {/* 브레드크럼 */}
-                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">
-                    <Link href="/profile" className="hover:underline">
-                      프로필
-                    </Link>
-                    <span>›</span>
-                    <span>후기</span>
-                  </div>
-
                   <h2 className="text-3xl font-bold text-gray-900 mb-8">
                     내가 작성한 후기
                   </h2>

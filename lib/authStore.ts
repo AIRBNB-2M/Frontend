@@ -11,7 +11,7 @@ async function tryRefreshToken(): Promise<string | null> {
   }
 }
 
-interface AuthState {
+export interface AuthState {
   accessToken: string | null;
   isTokenInitialized: boolean;
   setAccessToken: (token: string | null) => void;
