@@ -7,11 +7,17 @@ import http from "@/lib/http";
 
 export default function Header() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const accessToken = useAuthStore((state) => state.accessToken);
+
+  const { accessToken, isTokenInitialized } = useAuthStore((state) => ({
+    accessToken: state.accessToken,
+    isTokenInitialized: state.isTokenInitialized,
+  }));
+
   const clearAccessToken = useAuthStore((state) => state.clearAccessToken);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isLoggedIn = !!accessToken;
+  const isLoading = !isTokenInitialized; // 초기화가 완료되지 않은 상태
 
   // 외부 클릭 시 메뉴 닫기
   useEffect(() => {
@@ -59,17 +65,27 @@ export default function Header() {
             <div className="flex items-center gap-4">
               {/* 사용자 메뉴 버튼 */}
               <button
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-2 border border-gray-300 rounded-full px-3 py-2 hover:shadow-md transition-shadow relative"
+                onClick={() => !isLoading && setIsUserMenuOpen(!isUserMenuOpen)}
+                disabled={isLoading}
+                className={`flex items-center gap-2 border border-gray-300 rounded-full px-3 py-2 transition-all ${
+                  isLoading
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:shadow-md cursor-pointer"
+                }`}
               >
                 <i className="ri-menu-line w-4 h-4 flex items-center justify-center"></i>
                 <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center">
-                  <i className="ri-user-line w-5 h-5 flex items-center justify-center text-white"></i>
+                  {isLoading ? (
+                    // 로딩 스피너
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <i className="ri-user-line w-5 h-5 flex items-center justify-center text-white"></i>
+                  )}
                 </div>
               </button>
 
               {/* 드롭다운 메뉴 */}
-              {isUserMenuOpen && (
+              {isUserMenuOpen && !isLoading && (
                 <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
                   {isLoggedIn ? (
                     <>

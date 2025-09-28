@@ -37,31 +37,22 @@ function redirectToLogin() {
 }
 
 http.interceptors.request.use((config) => {
-  try {
-    const token = useAuthStore.getState().accessToken;
-    if (token) {
-      config.headers = config.headers || {};
-      config.headers["Authorization"] = `Bearer ${token}`;
-    }
-  } catch {}
+  const token = useAuthStore.getState().accessToken;
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers["Authorization"] = `Bearer ${token}`;
+  }
   return config;
 });
 
 http.interceptors.response.use(
   (response) => {
-    try {
-      const token = extractAccessTokenFromHeaders(response.headers as any);
-      if (token) {
-        const { setAccessToken } = useAuthStore.getState();
-        setAccessToken(token);
-      } else {
-        // 첫 요청에서 토큰이 없으면 초기화 완료로 표시
-        const { isTokenInitialized, markInitialized } = useAuthStore.getState();
-        if (!isTokenInitialized) {
-          markInitialized();
-        }
-      }
-    } catch {}
+    // 성공 응답에서 토큰 추출 및 저장
+    const token = extractAccessTokenFromHeaders(response.headers as any);
+    if (token) {
+      const { setAccessToken } = useAuthStore.getState();
+      setAccessToken(token);
+    }
     return response;
   },
   async (error: AxiosError) => {
@@ -70,15 +61,13 @@ http.interceptors.response.use(
       | undefined;
 
     const status = error.response?.status;
-    const errorMessage =
-      (error.response?.data as any)?.message || error.message || "";
-
     const requestUrl = originalRequest?.url || "";
 
+    // 401/403 에러 처리
     if (status === 401 || status === 403) {
       const { accessToken, clearAccessToken } = useAuthStore.getState();
 
-      // 위시리스트 관련 API이고 토큰이 없는 경우 -> 회원가입 페이지로
+      // 인증이 필요한 엔드포인트에 토큰 없이 접근한 경우
       if (isRequiredAuthEndpoint(requestUrl) && !accessToken) {
         clearAccessToken();
         const customError = new Error(
@@ -88,65 +77,59 @@ http.interceptors.response.use(
         redirectToLogin();
         return Promise.reject(customError);
       }
-    }
 
-    // 401이 아니거나, originalRequest가 없으면 그냥 에러 반환
-    if (status !== 401 || !originalRequest) {
-      let message = "요청 처리 중 오류가 발생했습니다.";
-      if (error.response?.data) {
-        const errorData = error.response.data as any;
-        if (errorData.message) {
-          message = errorData.message;
-        } else if (status === 400) {
-          message =
-            "이메일 또는 비밀번호가 올바르지 않습니다. 다시 확인해주세요.";
-        } else if (status === 409) {
-          message = "이미 가입된 계정입니다. 로그인해주세요.";
-        } else if (status === 500) {
-          message = "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+      // 토큰이 있는데 401이 발생한 경우 = 토큰 만료로 간주
+      if (accessToken && !originalRequest?._retry) {
+        originalRequest!._retry = true;
+
+        try {
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            // 토큰 리프레시 성공 - 원래 요청 재시도
+            originalRequest!.headers = originalRequest!.headers || {};
+            (originalRequest!.headers as any)[
+              "Authorization"
+            ] = `Bearer ${newToken}`;
+            return http(originalRequest!);
+          } else {
+            // 토큰 리프레시 실패 - 로그아웃 처리
+            clearAccessToken();
+            const error = new Error(
+              "인증이 만료되었습니다. 다시 로그인해주세요."
+            ) as any;
+            error.forceLogout = true;
+            return Promise.reject(error);
+          }
+        } catch (refreshErr: any) {
+          clearAccessToken();
+          const error = new Error(
+            "인증이 만료되었습니다. 다시 로그인해주세요."
+          ) as any;
+          error.forceLogout = true;
+          return Promise.reject(error);
         }
-      } else {
-        message = error.message || message;
       }
-      const customError = new Error(message) as any;
-      customError.response = error.response;
-      return Promise.reject(customError);
     }
 
-    // "expired"가 메시지에 없으면 리프레시 시도하지 않고 에러 반환
-    if (!errorMessage.toLowerCase().includes("expired")) {
-      return Promise.reject(new Error(errorMessage));
-    }
-
-    // 이미 리트라이한 요청이면 무한루프 방지
-    if (originalRequest._retry) {
-      return Promise.reject(new Error(errorMessage));
-    }
-    originalRequest._retry = true;
-
-    try {
-      const newToken = await refreshAccessToken();
-      if (!newToken) {
-        const { clearAccessToken } = useAuthStore.getState();
-        clearAccessToken();
-        const error = new Error(
-          "인증이 만료되었습니다. 다시 로그인해주세요."
-        ) as any;
-        error.forceLogout = true;
-        return Promise.reject(error);
+    // 기타 에러 처리
+    let message = "요청 처리 중 오류가 발생했습니다.";
+    if (error.response?.data) {
+      const errorData = error.response.data as any;
+      if (errorData.message) {
+        message = errorData.message;
+      } else if (status === 400) {
+        message =
+          "이메일 또는 비밀번호가 올바르지 않습니다. 다시 확인해주세요.";
+      } else if (status === 409) {
+        message = "이미 가입된 계정입니다. 로그인해주세요.";
+      } else if (status === 500) {
+        message = "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
       }
-      originalRequest.headers = originalRequest.headers || {};
-      (originalRequest.headers as any)["Authorization"] = `Bearer ${newToken}`;
-      return http(originalRequest);
-    } catch (refreshErr: any) {
-      const { clearAccessToken } = useAuthStore.getState();
-      clearAccessToken();
-      const error = new Error(
-        refreshErr?.message || "인증이 만료되었습니다. 다시 로그인해주세요."
-      ) as any;
-      error.forceLogout = true;
-      return Promise.reject(error);
     }
+
+    const customError = new Error(message) as any;
+    customError.response = error.response;
+    return Promise.reject(customError);
   }
 );
 
@@ -352,9 +335,13 @@ export async function refreshAccessToken(): Promise<string | null> {
   try {
     const res = await refreshHttp.post("/api/auth/refresh");
     const token = extractAccessTokenFromHeaders(res.headers as any);
-    const { setAccessToken } = useAuthStore.getState();
-    setAccessToken(token);
-    return token;
+    if (token) {
+      const { setAccessToken } = useAuthStore.getState();
+      setAccessToken(token);
+      console.log("Access token refreshed successfully");
+      return token;
+    }
+    return null;
   } catch (err) {
     return null;
   }

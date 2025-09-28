@@ -1,7 +1,5 @@
 "use client";
 
-import React from "react";
-
 type Provider = "google" | "naver" | "kakao" | "github";
 
 interface SocialAuthButtonsProps {
