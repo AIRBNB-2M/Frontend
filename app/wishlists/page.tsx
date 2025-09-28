@@ -1,47 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import AuthCheckingPage from "@/components/AuthCheckingPage";
 import Header from "@/components/Header";
-import RefreshAccessTokenOnMount from "@/components/RefreshAccessTokenOnMount";
 import { useAuthStore } from "@/lib/authStore";
 import { createWishlist, deleteWishlist, fetchWishlists } from "@/lib/http";
 import { WishlistCreateResDto, WishlistsResDto } from "@/lib/wishlistTypes";
 import { Trash } from "lucide-react";
-import AuthCheckingPage from "@/components/AuthCheckingPage";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function WishlistsPage() {
+  const router = useRouter();
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const clearAccessToken = useAuthStore((state) => state.clearAccessToken);
+
   const [wishlists, setWishlists] = useState<WishlistsResDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [wishlistName, setWishlistName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
-  const { accessToken, isTokenInitialized } = useAuthStore();
-  const router = useRouter();
 
-  // 토큰 새로고침 완료 대기
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setAuthChecked(true);
-    }, 1000); // 1초 후 인증 체크 완료로 간주
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // 로그인 체크 (토큰 새로고침 완료 후)
-  useEffect(() => {
-    if (authChecked && !accessToken) {
+    if (!accessToken) {
       router.push("/login");
-      return;
     }
-  }, [accessToken, authChecked, router]);
+  }, [accessToken, router]);
 
   // 위시리스트 데이터 가져오기
   useEffect(() => {
-    if (!isTokenInitialized) return;
+    if (!accessToken) {
+      return;
+    }
 
     const loadWishlists = async () => {
       try {
@@ -51,18 +43,14 @@ export default function WishlistsPage() {
         setWishlists(data);
       } catch (err: any) {
         console.error("위시리스트 조회 오류:", err);
-        if (err?.forceLogout) {
-          setError("인증이 만료되었습니다. 다시 로그인해주세요.");
-        } else {
-          setError(err?.message || "위시리스트를 불러오지 못했습니다.");
-        }
+        setError(err?.message || "위시리스트를 불러오지 못했습니다.");
       } finally {
         setLoading(false);
       }
     };
 
     loadWishlists();
-  }, [isTokenInitialized]);
+  }, [accessToken]);
 
   // 위시리스트 클릭 핸들러
   const handleWishlistClick = (wishlistId: number) => {
@@ -119,7 +107,8 @@ export default function WishlistsPage() {
     } catch (err: any) {
       console.error("위시리스트 생성 오류:", err);
       if (err?.forceLogout) {
-        setCreateError("인증이 만료되었습니다. 다시 로그인해주세요.");
+        clearAccessToken();
+        router.push("/login");
       } else {
         setCreateError(
           err?.message || "위시리스트 생성 중 오류가 발생했습니다."
@@ -144,25 +133,21 @@ export default function WishlistsPage() {
       setWishlists((prev) => prev.filter((w) => w.wishlistId !== wishlistId));
     } catch (err: any) {
       if (err?.forceLogout) {
-        alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+        clearAccessToken();
+        router.push("/login");
       } else {
         alert(err?.message || "위시리스트 삭제 중 오류가 발생했습니다.");
       }
     }
   };
 
-  if (!authChecked) {
+  if (!accessToken || loading) {
     return <AuthCheckingPage />;
-  }
-
-  if (!accessToken) {
-    return null; // 리다이렉트 처리 중
   }
 
   return (
     <div className="min-h-screen bg-white">
       <Header />
-      <RefreshAccessTokenOnMount />
 
       <main className="max-w-screen-2xl mx-auto px-6 py-8">
         {/* 헤더 섹션 */}

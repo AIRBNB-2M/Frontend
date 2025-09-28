@@ -7,20 +7,17 @@ import { useRouter } from "next/navigation";
 import PropertyCard from "@/components/PropertyCard";
 import { useState, useEffect } from "react";
 import { fetchAccommodations } from "@/lib/http";
-import { useAuthStore } from "@/lib/authStore";
 import Loader from "@/components/Loader";
 
 function HomeContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [accommodations, setAccommodations] = useState([]);
-  const { accessToken, isTokenInitialized } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const router = useRouter();
 
   // 숙소 목록 요청
   useEffect(() => {
-    if (!isTokenInitialized) return;
     setLoading(true);
     setError("");
     fetchAccommodations()
@@ -32,7 +29,7 @@ function HomeContent() {
         setError(err.message || "숙소 정보를 불러오지 못했습니다.");
         setLoading(false);
       });
-  }, [isTokenInitialized]);
+  }, []);
 
   // areaName별로 그룹핑, 카테고리 필터 적용
   const groupedAreas = (accommodations as any[])

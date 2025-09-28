@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Briefcase, CalendarCheck, Luggage, MessageCircle } from "lucide-react";
-import { useAuthStore } from "@/lib/authStore";
 import { DefaultProfileResDto, ProfileUpdateResponse } from "@/lib/users";
 import { fetchMyProfile, updateMyProfile } from "@/lib/http";
 import Loader from "@/components/Loader";
@@ -11,7 +10,6 @@ import AboutTab from "@/components/profile/AboutTab";
 import Link from "next/link";
 
 export default function ProfilePage() {
-  const { accessToken, isTokenInitialized } = useAuthStore();
   const [profile, setProfile] = useState<DefaultProfileResDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -33,8 +31,6 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
-    if (!isTokenInitialized) return;
-
     const loadProfile = async () => {
       try {
         setLoading(true);
@@ -49,7 +45,7 @@ export default function ProfilePage() {
       }
     };
     loadProfile();
-  }, [isTokenInitialized]);
+  }, []);
 
   if (loading) return <Loader />;
 

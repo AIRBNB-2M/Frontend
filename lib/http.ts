@@ -15,6 +15,7 @@ import {
   ProfileUpdateRequest,
   ProfileUpdateResponse,
 } from "./users";
+import router from "next/router";
 
 const http = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
@@ -22,25 +23,17 @@ const http = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// 위시리스트 관련 API 경로들
-const REQUIRED_AUTH_ENDPOINTS = ["/api/wishlists", "/api/wishlists/"];
-
-// 경로가 위시리스트 관련 API인지 확인하는 함수
-function isRequiredAuthEndpoint(url: string): boolean {
-  return REQUIRED_AUTH_ENDPOINTS.some((endpoint) => url.includes(endpoint));
-}
-
 function redirectToLogin() {
   if (typeof window !== "undefined") {
-    window.location.href = "/login";
+    router.push("/login");
   }
 }
 
 http.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().accessToken;
-  if (token) {
+  const { accessToken } = useAuthStore.getState();
+  if (accessToken) {
     config.headers = config.headers || {};
-    config.headers["Authorization"] = `Bearer ${token}`;
+    config.headers["Authorization"] = `Bearer ${accessToken}`;
   }
   return config;
 });
@@ -50,86 +43,36 @@ http.interceptors.response.use(
     // 성공 응답에서 토큰 추출 및 저장
     const token = extractAccessTokenFromHeaders(response.headers as any);
     if (token) {
-      const { setAccessToken } = useAuthStore.getState();
-      setAccessToken(token);
+      useAuthStore.getState().setAccessToken(token);
     }
     return response;
   },
+
   async (error: AxiosError) => {
-    const originalRequest = error.config as
-      | (AxiosRequestConfig & { _retry?: boolean })
-      | undefined;
-
+    const originalRequest = error.config as AxiosRequestConfig & {
+      _retry?: boolean;
+    };
     const status = error.response?.status;
-    const requestUrl = originalRequest?.url || "";
 
-    // 401/403 에러 처리
-    if (status === 401 || status === 403) {
-      const { accessToken, clearAccessToken } = useAuthStore.getState();
+    if (status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
 
-      // 인증이 필요한 엔드포인트에 토큰 없이 접근한 경우
-      if (isRequiredAuthEndpoint(requestUrl) && !accessToken) {
-        clearAccessToken();
-        const customError = new Error(
-          "로그인이 필요한 서비스입니다. 회원가입을 진행해주세요."
-        ) as any;
-        customError.redirectToSignup = true;
-        redirectToLogin();
-        return Promise.reject(customError);
+      // refresh 시도
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        originalRequest.headers = originalRequest.headers || {};
+        (originalRequest.headers as any)[
+          "Authorization"
+        ] = `Bearer ${newToken}`;
+        return http(originalRequest); // 원래 요청 재시도
       }
 
-      // 토큰이 있는데 401이 발생한 경우 = 토큰 만료로 간주
-      if (accessToken && !originalRequest?._retry) {
-        originalRequest!._retry = true;
-
-        try {
-          const newToken = await refreshAccessToken();
-          if (newToken) {
-            // 토큰 리프레시 성공 - 원래 요청 재시도
-            originalRequest!.headers = originalRequest!.headers || {};
-            (originalRequest!.headers as any)[
-              "Authorization"
-            ] = `Bearer ${newToken}`;
-            return http(originalRequest!);
-          } else {
-            // 토큰 리프레시 실패 - 로그아웃 처리
-            clearAccessToken();
-            const error = new Error(
-              "인증이 만료되었습니다. 다시 로그인해주세요."
-            ) as any;
-            error.forceLogout = true;
-            return Promise.reject(error);
-          }
-        } catch (refreshErr: any) {
-          clearAccessToken();
-          const error = new Error(
-            "인증이 만료되었습니다. 다시 로그인해주세요."
-          ) as any;
-          error.forceLogout = true;
-          return Promise.reject(error);
-        }
-      }
+      // refresh 실패 시 토큰 제거
+      useAuthStore.getState().clearAccessToken();
     }
 
-    // 기타 에러 처리
-    let message = "요청 처리 중 오류가 발생했습니다.";
-    if (error.response?.data) {
-      const errorData = error.response.data as any;
-      if (errorData.message) {
-        message = errorData.message;
-      } else if (status === 400) {
-        message =
-          "이메일 또는 비밀번호가 올바르지 않습니다. 다시 확인해주세요.";
-      } else if (status === 409) {
-        message = "이미 가입된 계정입니다. 로그인해주세요.";
-      } else if (status === 500) {
-        message = "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
-      }
-    }
-
-    const customError = new Error(message) as any;
-    customError.response = error.response;
-    return Promise.reject(customError);
+    // 403 또는 refresh 실패 → 그냥 reject
+    return Promise.reject(error);
   }
 );
 
@@ -331,20 +274,22 @@ const refreshHttp = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-export async function refreshAccessToken(): Promise<string | null> {
+async function refreshAccessToken(): Promise<string | null> {
   try {
-    const res = await refreshHttp.post("/api/auth/refresh");
-    const token = extractAccessTokenFromHeaders(res.headers as any);
-    if (token) {
-      const { setAccessToken } = useAuthStore.getState();
-      setAccessToken(token);
-      console.log("Access token refreshed successfully");
-      return token;
+    const res = await axios.post(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/refresh`,
+      {},
+      { withCredentials: true }
+    );
+    const newToken = res.data.accessToken;
+    if (newToken) {
+      useAuthStore.getState().setAccessToken(newToken);
+      return newToken;
     }
-    return null;
-  } catch (err) {
-    return null;
+  } catch {
+    // 실패 시 null 반환
   }
+  return null;
 }
 
 function extractAccessTokenFromHeaders(headers: any): string | null {

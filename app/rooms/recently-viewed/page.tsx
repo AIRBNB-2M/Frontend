@@ -1,16 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import Header from "@/components/Header";
-import RefreshAccessTokenOnMount from "@/components/RefreshAccessTokenOnMount";
-import PropertyCard from "@/components/PropertyCard";
-import { useAuthStore } from "@/lib/authStore";
-import { fetchRecentViews } from "@/lib/http";
-import WishlistModal from "@/components/WishlistModal";
-import { ViewHistoryResDto } from "@/lib/detailAccommodation";
 import AuthCheckingPage from "@/components/AuthCheckingPage";
+import Header from "@/components/Header";
+import PropertyCard from "@/components/PropertyCard";
+import WishlistModal from "@/components/WishlistModal";
+import { useAuthStore } from "@/lib/authStore";
+import { ViewHistoryResDto } from "@/lib/detailAccommodation";
+import { fetchRecentViews } from "@/lib/http";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function RecentViewsPage() {
   const [viewHistory, setViewHistory] = useState<ViewHistoryResDto[]>([]);
@@ -119,7 +118,6 @@ export default function RecentViewsPage() {
   return (
     <div className="min-h-screen bg-white">
       <Header />
-      <RefreshAccessTokenOnMount />
 
       <main className="max-w-screen-2xl mx-auto px-6 py-8">
         {/* 헤더 섹션 */}

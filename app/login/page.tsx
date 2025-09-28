@@ -23,11 +23,9 @@ export default function LoginPage() {
   // 이미 로그인된 경우 메인 페이지로 리다이렉트
   useEffect(() => {
     if (accessToken) {
-      window.location.href = "/";
+      router.push("/");
     }
   }, [accessToken, router]);
-
-  // 소셜 인증 버튼은 공용 컴포넌트에서 처리합니다.
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +48,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       await http.post("/api/auth/login", { email, password });
-      window.location.href = "/";
+      router.push("/");
     } catch (err: any) {
       setSubmitError(err?.message || "로그인 요청 중 오류가 발생했습니다.");
     } finally {

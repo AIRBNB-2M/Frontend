@@ -1,5 +1,18 @@
 "use client";
 
+import AuthCheckingPage from "@/components/AuthCheckingPage";
+import Header from "@/components/Header";
+import WishlistSettingsModal from "@/components/WishlistSettingsModal";
+import { useAuthStore } from "@/lib/authStore";
+import {
+  fetchWishlistDetail,
+  fetchWishlists,
+  removeAccommodationFromWishlist,
+  updateAccommodationMemo,
+  updateWishlistName,
+} from "@/lib/http";
+import { WishlistDetailResDto } from "@/lib/wishlistTypes";
+import { GoogleMap, Marker, useLoadScript } from "@react-google-maps/api";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -7,23 +20,9 @@ import {
   Pencil,
   Settings,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-import Header from "@/components/Header";
-import RefreshAccessTokenOnMount from "@/components/RefreshAccessTokenOnMount";
-import WishlistSettingsModal from "@/components/WishlistSettingsModal";
-import { GoogleMap, Marker, useLoadScript } from "@react-google-maps/api";
-import { useAuthStore } from "@/lib/authStore";
-import {
-  fetchWishlistDetail,
-  updateAccommodationMemo,
-  removeAccommodationFromWishlist,
-  fetchWishlists,
-  updateWishlistName,
-} from "@/lib/http";
 import Link from "next/link";
-import { WishlistDetailResDto } from "@/lib/wishlistTypes";
-import AuthCheckingPage from "@/components/AuthCheckingPage";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 // Google Maps 관련 인터페이스
 interface MapMarker {
@@ -328,7 +327,6 @@ export default function WishlistDetailPage() {
   return (
     <div className="min-h-screen bg-white">
       <Header />
-      <RefreshAccessTokenOnMount />
 
       <main className="max-w-screen-2xl mx-auto px-6 py-8">
         {/* 헤더 섹션 */}

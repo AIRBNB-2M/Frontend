@@ -17,14 +17,12 @@ import AccommodationMap from "@/components/GoogleMap";
 import "react-datepicker/dist/react-datepicker.css";
 import AirbnbDateRangePicker from "@/components/DateRangePicker";
 import { differenceInDays, format } from "date-fns";
-import { useAuthStore } from "@/lib/authStore";
 import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/Toast";
 
 function AccommodationDetailContent() {
   const params = useParams();
   const router = useRouter();
-  const { accessToken, isTokenInitialized } = useAuthStore();
   const [accommodation, setAccommodation] =
     useState<DetailAccommodationResDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,7 +56,7 @@ function AccommodationDetailContent() {
   const accommodationId = params.id as string;
 
   useEffect(() => {
-    if (!accommodationId || !isTokenInitialized) return;
+    if (!accommodationId) return;
 
     setLoading(true);
     setError("");
@@ -76,7 +74,7 @@ function AccommodationDetailContent() {
         setError(err.message || "숙소 정보를 불러오지 못했습니다.");
         setLoading(false);
       });
-  }, [accommodationId, isTokenInitialized]);
+  }, [accommodationId]);
 
   // 날짜 선택 시 가격 조회
   useEffect(() => {
