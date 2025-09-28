@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useState, useRef } from "react";
 import { useAuthStore } from "@/lib/authStore";
-import http from "@/lib/http";
-import { useRouter } from "next/navigation";
+import { logout } from "@/lib/http";
+import { usePathname, useRouter } from "next/navigation";
 
 export default function Header() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Zustand에서 직접 accessToken과 clearAccessToken을 가져옴
@@ -31,13 +32,17 @@ export default function Header() {
 
   const handleLogout = async () => {
     try {
-      await http.post("/api/auth/logout");
+      await logout();
+      clearAccessToken();
     } catch (error) {
       console.error("로그아웃 오류:", error);
     } finally {
-      clearAccessToken(); // Zustand state 변경 → 자동 리렌더링
       setIsUserMenuOpen(false);
-      router.push("/");
+      if (pathname === "/") {
+        window.location.href = "/";
+      } else {
+        router.replace("/");
+      }
     }
   };
 

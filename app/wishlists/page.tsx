@@ -7,7 +7,7 @@ import { createWishlist, deleteWishlist, fetchWishlists } from "@/lib/http";
 import { WishlistCreateResDto, WishlistsResDto } from "@/lib/wishlistTypes";
 import { Trash } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export default function WishlistsPage() {
   const router = useRouter();
@@ -17,40 +17,84 @@ export default function WishlistsPage() {
   const [wishlists, setWishlists] = useState<WishlistsResDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authChecking, setAuthChecking] = useState(true); // 인증 확인 중 상태
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [wishlistName, setWishlistName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // 인증 상태 확인 (즉시 리다이렉트하지 않음)
   useEffect(() => {
-    if (!accessToken) {
-      router.push("/login");
-    }
-  }, [accessToken, router]);
+    const checkAuth = () => {
+      setAuthChecking(false);
+    };
 
-  // 위시리스트 데이터 가져오기
-  useEffect(() => {
+    // 약간의 지연을 두어 토큰 리프레시 시간을 확보
+    const timer = setTimeout(checkAuth, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 에러 처리 핸들러
+  const handleHttpError = useCallback(
+    (err: any, fallbackMessage: string) => {
+      console.error("HTTP Error:", err);
+
+      // CustomHttpError 타입 확인
+      if (
+        err &&
+        typeof err === "object" &&
+        "forceLogout" in err &&
+        err.forceLogout
+      ) {
+        clearAccessToken();
+        router.push("/login");
+        return;
+      }
+
+      // AxiosError 처리
+      if (err?.response?.status === 401) {
+        // 401 에러지만 forceLogout이 없다면 리프레시 중일 수 있음
+        // 잠시 기다렸다가 재시도하거나 에러 표시
+        setError("인증에 문제가 있습니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+
+      // 일반 에러 처리
+      const errorMessage =
+        err?.message || err?.response?.data?.message || fallbackMessage;
+      setError(errorMessage);
+    },
+    [clearAccessToken, router]
+  );
+
+  // 위시리스트 데이터 로딩
+  const loadWishlists = useCallback(async () => {
     if (!accessToken) {
       return;
     }
 
-    const loadWishlists = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await fetchWishlists();
-        setWishlists(data);
-      } catch (err: any) {
-        console.error("위시리스트 조회 오류:", err);
-        setError(err?.message || "위시리스트를 불러오지 못했습니다.");
-      } finally {
-        setLoading(false);
-      }
-    };
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await fetchWishlists();
+      setWishlists(data);
+    } catch (err) {
+      handleHttpError(err, "위시리스트를 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken, handleHttpError]);
 
-    loadWishlists();
-  }, [accessToken]);
+  // 데이터 로딩 효과
+  useEffect(() => {
+    if (!authChecking && accessToken) {
+      loadWishlists();
+    } else if (!authChecking && !accessToken) {
+      // 인증 확인이 끝났는데 토큰이 없으면 로그인으로
+      router.push("/login");
+    }
+  }, [authChecking, accessToken, loadWishlists, router]);
 
   // 위시리스트 클릭 핸들러
   const handleWishlistClick = (wishlistId: number) => {
@@ -104,15 +148,19 @@ export default function WishlistsPage() {
 
       setWishlists((prev) => [newWishlist, ...prev]);
       handleCloseModal();
-    } catch (err: any) {
-      console.error("위시리스트 생성 오류:", err);
-      if (err?.forceLogout) {
-        clearAccessToken();
-        router.push("/login");
+    } catch (err) {
+      // 에러 처리에서 로그아웃이 필요하면 자동으로 처리됨
+      if (
+        err &&
+        typeof err === "object" &&
+        "forceLogout" in err &&
+        err.forceLogout
+      ) {
+        handleHttpError(err, "위시리스트 생성 중 오류가 발생했습니다.");
       } else {
-        setCreateError(
-          err?.message || "위시리스트 생성 중 오류가 발생했습니다."
-        );
+        const errorMessage =
+          (err as any)?.message || "위시리스트 생성 중 오류가 발생했습니다.";
+        setCreateError(errorMessage);
       }
     } finally {
       setIsCreating(false);
@@ -131,17 +179,13 @@ export default function WishlistsPage() {
     try {
       await deleteWishlist(wishlistId);
       setWishlists((prev) => prev.filter((w) => w.wishlistId !== wishlistId));
-    } catch (err: any) {
-      if (err?.forceLogout) {
-        clearAccessToken();
-        router.push("/login");
-      } else {
-        alert(err?.message || "위시리스트 삭제 중 오류가 발생했습니다.");
-      }
+    } catch (err) {
+      handleHttpError(err, "위시리스트 삭제 중 오류가 발생했습니다.");
     }
   };
 
-  if (!accessToken || loading) {
+  // 로딩 중이거나 인증 확인 중일 때
+  if (authChecking || (!accessToken && !error)) {
     return <AuthCheckingPage />;
   }
 
@@ -177,7 +221,7 @@ export default function WishlistsPage() {
             </h3>
             <p className="text-gray-500 mb-6">{error}</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={loadWishlists}
               className="bg-pink-500 text-white px-6 py-3 rounded-lg hover:bg-pink-600 transition-colors"
             >
               다시 시도
