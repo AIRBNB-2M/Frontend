@@ -2,6 +2,8 @@
 
 import AuthCheckingPage from "@/components/AuthCheckingPage";
 import Header from "@/components/Header";
+import Loader from "@/components/Loader";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useAuthStore } from "@/lib/authStore";
 import { createWishlist, deleteWishlist, fetchWishlists } from "@/lib/http";
 import { WishlistCreateResDto, WishlistsResDto } from "@/lib/wishlistTypes";
@@ -10,30 +12,18 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 export default function WishlistsPage() {
+  const { isAuthChecked, isAuthenticated } = useRequireAuth();
   const router = useRouter();
-  const accessToken = useAuthStore((state) => state.accessToken);
   const clearAccessToken = useAuthStore((state) => state.clearAccessToken);
 
   const [wishlists, setWishlists] = useState<WishlistsResDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [authChecking, setAuthChecking] = useState(true); // 인증 확인 중 상태
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [wishlistName, setWishlistName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-
-  // 인증 상태 확인 (즉시 리다이렉트하지 않음)
-  useEffect(() => {
-    const checkAuth = () => {
-      setAuthChecking(false);
-    };
-
-    // 약간의 지연을 두어 토큰 리프레시 시간을 확보
-    const timer = setTimeout(checkAuth, 100);
-    return () => clearTimeout(timer);
-  }, []);
 
   // 에러 처리 핸들러
   const handleHttpError = useCallback(
@@ -70,9 +60,7 @@ export default function WishlistsPage() {
 
   // 위시리스트 데이터 로딩
   const loadWishlists = useCallback(async () => {
-    if (!accessToken) {
-      return;
-    }
+    if (!isAuthChecked || !isAuthenticated) return;
 
     try {
       setLoading(true);
@@ -84,17 +72,18 @@ export default function WishlistsPage() {
     } finally {
       setLoading(false);
     }
-  }, [accessToken, handleHttpError]);
+  }, [isAuthChecked, isAuthenticated, handleHttpError]);
 
-  // 데이터 로딩 효과
+  // --- 초기 로딩 ---
   useEffect(() => {
-    if (!authChecking && accessToken) {
-      loadWishlists();
-    } else if (!authChecking && !accessToken) {
-      // 인증 확인이 끝났는데 토큰이 없으면 로그인으로
-      router.push("/login");
+    if (!isAuthChecked) return; // 초기화 완료 전 대기
+    if (!isAuthenticated) {
+      router.replace("/login"); // 로그인 페이지 이동
+      return;
     }
-  }, [authChecking, accessToken, loadWishlists, router]);
+
+    loadWishlists();
+  }, [isAuthChecked, isAuthenticated, loadWishlists, router]);
 
   // 위시리스트 클릭 핸들러
   const handleWishlistClick = (wishlistId: number) => {
@@ -184,9 +173,14 @@ export default function WishlistsPage() {
     }
   };
 
-  // 로딩 중이거나 인증 확인 중일 때
-  if (authChecking || (!accessToken && !error)) {
+  if (!isAuthChecked) {
     return <AuthCheckingPage />;
+  }
+
+  if (!isAuthenticated) return null; // 이미 로그인 페이지로 이동 중
+
+  if (loading) {
+    return <Loader />;
   }
 
   return (

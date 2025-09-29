@@ -2,9 +2,9 @@
 
 import AuthCheckingPage from "@/components/AuthCheckingPage";
 import Header from "@/components/Header";
+import Loader from "@/components/Loader";
 import WishlistSettingsModal from "@/components/WishlistSettingsModal";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
-import { useAuthStore } from "@/lib/authStore";
 import {
   fetchWishlistDetail,
   fetchWishlists,
@@ -35,15 +35,13 @@ interface MapMarker {
 }
 
 export default function WishlistDetailPage() {
-  const { isLoading: isAuthLoading, isAuthenticated } = useRequireAuth();
-
+  const { isAuthChecked, isAuthenticated } = useRequireAuth();
   const [accommodations, setAccommodations] = useState<WishlistDetailResDto[]>(
     []
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [wishlistName, setWishlistName] = useState<string>("");
-  const [authChecked, setAuthChecked] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAccommodation, setEditingAccommodation] =
     useState<WishlistDetailResDto | null>(null);
@@ -73,14 +71,20 @@ export default function WishlistDetailPage() {
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
   });
 
-  const accessToken = useAuthStore((state) => state.accessToken);
   const router = useRouter();
   const params = useParams();
   const wishlistId = params?.wishlistId as string;
 
   // 위시리스트 데이터 가져오기
   useEffect(() => {
-    if (isAuthLoading || !wishlistId) return;
+    // 1) 초기화 완료 전 또는 accessToken 없는 경우 fetch 중단
+    if (!isAuthChecked || !isAuthenticated) return;
+
+    if (!wishlistId) {
+      setError("잘못된 위시리스트 ID입니다.");
+      setLoading(false);
+      return;
+    }
 
     const fetchWishlistData = async () => {
       try {
@@ -149,7 +153,7 @@ export default function WishlistDetailPage() {
     };
 
     fetchWishlistData();
-  }, [isAuthLoading, wishlistId]);
+  }, [isAuthChecked, isAuthenticated, wishlistId]);
 
   // 이미지 네비게이션 함수들
   const nextImage = (
@@ -303,12 +307,14 @@ export default function WishlistDetailPage() {
     }
   };
 
-  if (!authChecked) {
+  if (!isAuthChecked) {
     return <AuthCheckingPage />;
   }
 
-  if (!accessToken) {
-    return null; // 리다이렉트 처리 중
+  if (!isAuthenticated) return null; // 이미 로그인 페이지로 이동 중
+
+  if (loading) {
+    return <Loader />;
   }
 
   return (

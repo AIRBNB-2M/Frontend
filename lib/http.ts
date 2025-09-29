@@ -132,6 +132,10 @@ http.interceptors.response.use(
         processQueue(customError, null);
         useAuthStore.getState().clearAccessToken();
 
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+
         return Promise.reject(customError);
       } finally {
         isRefreshing = false;

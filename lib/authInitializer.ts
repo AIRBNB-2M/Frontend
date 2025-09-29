@@ -1,32 +1,26 @@
 import { useAuthStore } from "./authStore";
 import { refreshAccessToken } from "./http";
 
-let isInitializing = false; // 중복 요청 방지
+let initPromise: Promise<boolean> | null = null;
 
-/**
- * 앱 로드 시 리프레시 토큰으로 액세스 토큰 복구
- * 성공하면 true, 실패하면 false 반환
- */
-export async function initializeAuth(): Promise<boolean> {
-  // 이미 초기화 중이거나 완료된 경우 스킵
-  const { isInitialized } = useAuthStore.getState();
-  if (isInitialized || isInitializing) {
-    return !!useAuthStore.getState().accessToken;
-  }
+export function initializeAuth(): Promise<boolean> {
+  const { isInitialized, accessToken } = useAuthStore.getState();
+  if (isInitialized) return Promise.resolve(!!accessToken);
+  if (initPromise) return initPromise;
 
-  isInitializing = true;
-  try {
-    const token = await refreshAccessToken();
-
-    if (token) {
-      useAuthStore.getState().setAccessToken(token);
+  initPromise = (async () => {
+    try {
+      const token = await refreshAccessToken();
+      if (token) useAuthStore.getState().setAccessToken(token);
+    } catch (err) {
+      console.log("Auth initialization failed:", err);
+      useAuthStore.getState().clearAccessToken();
+    } finally {
       useAuthStore.getState().setInitialized(true);
-      return true;
+      initPromise = null;
     }
-  } catch (error) {
-    console.log("Auth initialization failed - user not logged in");
-  }
+    return !!useAuthStore.getState().accessToken;
+  })();
 
-  useAuthStore.getState().setInitialized(true);
-  return false;
+  return initPromise;
 }
