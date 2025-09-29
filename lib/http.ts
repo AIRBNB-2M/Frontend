@@ -348,7 +348,7 @@ const refreshHttp = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   try {
     const res = await refreshHttp.post("/api/auth/refresh", {});
     const newToken = extractAccessTokenFromHeaders(res.headers as any);
@@ -364,7 +364,7 @@ async function refreshAccessToken(): Promise<string | null> {
   return null;
 }
 
-function extractAccessTokenFromHeaders(headers: any): string | null {
+export function extractAccessTokenFromHeaders(headers: any): string | null {
   try {
     const raw = headers?.["authorization"] ?? headers?.["Authorization"];
     const headerValue = Array.isArray(raw) ? raw[0] : raw;

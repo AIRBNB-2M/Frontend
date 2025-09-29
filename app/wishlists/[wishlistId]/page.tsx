@@ -3,6 +3,7 @@
 import AuthCheckingPage from "@/components/AuthCheckingPage";
 import Header from "@/components/Header";
 import WishlistSettingsModal from "@/components/WishlistSettingsModal";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useAuthStore } from "@/lib/authStore";
 import {
   fetchWishlistDetail,
@@ -34,6 +35,8 @@ interface MapMarker {
 }
 
 export default function WishlistDetailPage() {
+  const { isLoading: isAuthLoading, isAuthenticated } = useRequireAuth();
+
   const [accommodations, setAccommodations] = useState<WishlistDetailResDto[]>(
     []
   );
@@ -75,25 +78,9 @@ export default function WishlistDetailPage() {
   const params = useParams();
   const wishlistId = params?.wishlistId as string;
 
-  // 토큰 새로고침 완료 대기
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setAuthChecked(true);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // 로그인 체크
-  useEffect(() => {
-    if (authChecked && !accessToken) {
-      router.push("/login");
-      return;
-    }
-  }, [accessToken, authChecked, router]);
-
   // 위시리스트 데이터 가져오기
   useEffect(() => {
-    if (!accessToken || !wishlistId) return;
+    if (isAuthLoading || !wishlistId) return;
 
     const fetchWishlistData = async () => {
       try {
@@ -162,7 +149,7 @@ export default function WishlistDetailPage() {
     };
 
     fetchWishlistData();
-  }, [accessToken, wishlistId]);
+  }, [isAuthLoading, wishlistId]);
 
   // 이미지 네비게이션 함수들
   const nextImage = (

@@ -12,7 +12,6 @@ export default function Header() {
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Zustand에서 직접 accessToken과 clearAccessToken을 가져옴
   const accessToken = useAuthStore((state) => state.accessToken);
   const clearAccessToken = useAuthStore((state) => state.clearAccessToken);
 
