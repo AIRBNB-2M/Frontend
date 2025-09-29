@@ -4,7 +4,7 @@ import {
   addAccommodationToWishlist,
   createWishlist,
   fetchWishlists,
-} from "@/lib/http";
+} from "@/lib/http/wishlist";
 import { WishlistsResDto, WishlistCreateResDto } from "@/lib/wishlistTypes";
 import { ChevronRight, Heart, Plus, X, Image as ImageIcon } from "lucide-react";
 import { useRouter } from "next/navigation";

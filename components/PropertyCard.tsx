@@ -1,6 +1,5 @@
 "use client";
 
-import { fetchWishlists, removeAccommodationFromWishlist } from "@/lib/http";
 import { Star } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -8,6 +7,10 @@ import { useState } from "react";
 import WishlistModal from "./WishlistModal";
 import { useToast } from "@/hooks/useToast";
 import Toast from "./Toast";
+import {
+  fetchWishlists,
+  removeAccommodationFromWishlist,
+} from "@/lib/http/wishlist";
 
 interface PropertyCardProps {
   id: string;

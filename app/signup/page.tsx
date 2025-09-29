@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
-import http from "@/lib/http";
 import { useAuthStore, type AuthState } from "@/lib/authStore";
 import {
   isValidBirthDateNotFuture,
@@ -13,6 +12,7 @@ import {
   isValidPhoneNumber11,
 } from "@/lib/validators";
 import SocialAuthButtons from "@/components/SocialAuthButtons";
+import http from "@/lib/http/http";
 
 export default function SignUpPage() {
   const [formData, setFormData] = useState({

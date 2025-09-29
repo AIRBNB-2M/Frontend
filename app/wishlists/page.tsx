@@ -5,7 +5,11 @@ import Header from "@/components/Header";
 import Loader from "@/components/Loader";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useAuthStore } from "@/lib/authStore";
-import { createWishlist, deleteWishlist, fetchWishlists } from "@/lib/http";
+import {
+  createWishlist,
+  deleteWishlist,
+  fetchWishlists,
+} from "@/lib/http/wishlist";
 import { WishlistCreateResDto, WishlistsResDto } from "@/lib/wishlistTypes";
 import { Trash } from "lucide-react";
 import { useRouter } from "next/navigation";

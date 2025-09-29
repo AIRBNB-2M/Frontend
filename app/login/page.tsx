@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
-import http from "@/lib/http";
 import { isValidEmail, isValidPassword } from "@/lib/validators";
 import SocialAuthButtons from "@/components/SocialAuthButtons";
 import { useAuthStore } from "@/lib/authStore";
+import http from "@/lib/http/http";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");

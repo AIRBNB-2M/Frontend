@@ -6,7 +6,7 @@ import PropertyCard from "@/components/PropertyCard";
 import WishlistModal from "@/components/WishlistModal";
 import { useAuthStore } from "@/lib/authStore";
 import { ViewHistoryResDto } from "@/lib/detailAccommodation";
-import { fetchRecentViews } from "@/lib/http";
+import { fetchRecentViews } from "@/lib/http/profile";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";

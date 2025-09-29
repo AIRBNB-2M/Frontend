@@ -1,8 +1,8 @@
 "use client";
 import Header from "@/components/Header";
 import PropertyCard from "@/components/PropertyCard";
+import { fetchAccommodations } from "@/lib/http/accommodation";
 import { useEffect, useState } from "react";
-import { fetchAccommodations } from "@/lib/http";
 
 export default function AreaPageClient({ areaCode }: { areaCode: string }) {
   const [selectedCategory, setSelectedCategory] = useState("all");

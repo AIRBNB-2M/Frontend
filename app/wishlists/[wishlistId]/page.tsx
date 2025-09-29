@@ -11,7 +11,7 @@ import {
   removeAccommodationFromWishlist,
   updateAccommodationMemo,
   updateWishlistName,
-} from "@/lib/http";
+} from "@/lib/http/wishlist";
 import { WishlistDetailResDto } from "@/lib/wishlistTypes";
 import { GoogleMap, Marker, useLoadScript } from "@react-google-maps/api";
 import {

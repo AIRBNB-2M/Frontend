@@ -5,8 +5,8 @@ import SearchHeader from "@/components/SearchHeader";
 import PropertyCard from "@/components/PropertyCard";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { fetchAccommodations } from "@/lib/http";
 import { PageResponseDto } from "@/lib/detailAccommodation";
+import { fetchAccommodations } from "@/lib/http/accommodation";
 
 function AccommodationsContent() {
   const searchParams = useSearchParams();

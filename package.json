@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@react-google-maps/api": "^2.20.7",
+    "@stomp/stompjs": "^7.2.0",
     "axios": "^1.11.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.544.0",
@@ -20,6 +21,7 @@
     "react-dom": "^19.0.0",
     "react-time-picker": "^8.0.2",
     "recharts": "^3.0.2",
+    "sockjs-client": "^1.6.1",
     "zustand": "^4.5.7"
   },
   "devDependencies": {
@@ -27,6 +29,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/sockjs-client": "^1.5.4",
     "autoprefixer": "^10.4.21",
     "cross-env": "^7.0.3",
     "eslint": "^9.32.0",

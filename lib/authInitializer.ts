@@ -1,5 +1,5 @@
 import { useAuthStore } from "./authStore";
-import { refreshAccessToken } from "./http";
+import { refreshAccessToken } from "./http/http";
 
 let initPromise: Promise<boolean> | null = null;
 

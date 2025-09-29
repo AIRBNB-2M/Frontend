@@ -6,8 +6,8 @@ import { useRef, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import PropertyCard from "@/components/PropertyCard";
 import { useState, useEffect } from "react";
-import { fetchAccommodations } from "@/lib/http";
 import Loader from "@/components/Loader";
+import { fetchAccommodations } from "@/lib/http/accommodation";
 
 function HomeContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState, useRef } from "react";
 import { useAuthStore } from "@/lib/authStore";
-import { logout } from "@/lib/http";
 import { usePathname, useRouter } from "next/navigation";
+import { logout } from "@/lib/http/auth";
 
 export default function Header() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);

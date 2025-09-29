@@ -5,12 +5,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import WishlistModal from "@/components/WishlistModal";
-import {
-  fetchAccommodationDetail,
-  removeAccommodationFromWishlist,
-  fetchWishlists,
-  fetchAccommodationPrice,
-} from "@/lib/http";
+
 import { AMENITIES } from "@/lib/amenitiesList";
 import { DetailAccommodationResDto } from "@/lib/detailAccommodation";
 import AccommodationMap from "@/components/GoogleMap";
@@ -19,6 +14,14 @@ import AirbnbDateRangePicker from "@/components/DateRangePicker";
 import { differenceInDays, format } from "date-fns";
 import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/Toast";
+import {
+  fetchAccommodationDetail,
+  fetchAccommodationPrice,
+} from "@/lib/http/accommodation";
+import {
+  fetchWishlists,
+  removeAccommodationFromWishlist,
+} from "@/lib/http/wishlist";
 
 function AccommodationDetailContent() {
   const params = useParams();

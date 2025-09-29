@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { Briefcase, CalendarCheck, Luggage, MessageCircle } from "lucide-react";
 import { DefaultProfileResDto, ProfileUpdateResponse } from "@/lib/users";
-import { fetchMyProfile, updateMyProfile } from "@/lib/http";
 import Loader from "@/components/Loader";
 import Header from "@/components/Header";
 import AboutTab from "@/components/profile/AboutTab";
 import Link from "next/link";
+import { fetchMyProfile, updateMyProfile } from "@/lib/http/profile";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<DefaultProfileResDto | null>(null);

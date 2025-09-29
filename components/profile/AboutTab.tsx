@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import ProfileImageEditor from "./ProfileImageEditor";
 import { DefaultProfileResDto, ProfileUpdateResponse } from "@/lib/users";
 import { useState, useEffect } from "react";
-import { sendEmailVerification } from "@/lib/http";
+import { sendEmailVerification } from "@/lib/http/auth";
 
 export interface AboutTabProps {
   profile: DefaultProfileResDto;

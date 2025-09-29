@@ -1,7 +1,7 @@
 "use client";
 
+import { deleteWishlist, updateWishlistName } from "@/lib/http/wishlist";
 import { useState } from "react";
-import { updateWishlistName, deleteWishlist } from "@/lib/http";
 
 interface WishlistSettingsModalProps {
   isOpen: boolean;
