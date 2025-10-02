@@ -1,5 +1,5 @@
 import http from "./http";
-import { ChatUser, ChatRoom, ChatMessage } from "../chatTypes";
+import { ChatUser, ChatRoom, ChatMessagesResponse } from "../chatTypes";
 
 /**
  * 사용자 이름으로 검색
@@ -23,21 +23,25 @@ export async function fetchChatRooms(): Promise<ChatRoom[]> {
  * 특정 채팅방의 메시지 내역 조회
  */
 export async function fetchChatMessages(
-  roomId: string,
-  page: number = 0,
+  roomId: number,
+  lastMessageId?: number,
   size: number = 50
-): Promise<ChatMessage[]> {
-  const response = await http.get(`/api/chat/rooms/${roomId}/messages`, {
-    params: { page, size },
-  });
+): Promise<ChatMessagesResponse> {
+  const params = new URLSearchParams();
+  if (lastMessageId) params.append("lastMessageId", lastMessageId.toString());
+  params.append("size", size.toString());
+
+  const response = await http.get(`/api/chat/${roomId}/messages?${params}`);
   return response.data;
 }
 
 /**
  * 채팅방 생성 또는 기존 채팅방 조회
  */
-export async function createOrGetChatRoom(userId: number): Promise<ChatRoom> {
-  const response = await http.post("/api/chat/rooms", { userId });
+export async function createOrGetChatRoom(
+  otherGuestId: number
+): Promise<ChatRoom> {
+  const response = await http.post("/api/chat/rooms", { otherGuestId });
   return response.data;
 }
 
@@ -46,12 +50,4 @@ export async function createOrGetChatRoom(userId: number): Promise<ChatRoom> {
  */
 export async function leaveChatRoom(roomId: string): Promise<void> {
   await http.delete(`/api/chat/rooms/${roomId}`);
-}
-
-/**
- * 읽지 않은 메시지 수 조회
- */
-export async function fetchUnreadCount(): Promise<number> {
-  const response = await http.get("/api/chat/unread-count");
-  return response.data.count || 0;
 }

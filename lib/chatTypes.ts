@@ -1,6 +1,6 @@
 // 사용자 정보
 export interface ChatUser {
-  userId: number;
+  id: number;
   name: string;
   createdDateTime: string;
   profileImageUrl?: string;
@@ -8,10 +8,10 @@ export interface ChatUser {
 
 // 채팅방 정보
 export interface ChatRoom {
-  roomId: string;
-  userId: number;
-  userName: string;
-  userProfileImage?: string;
+  roomId: number;
+  guestId: number;
+  guestName: string;
+  guestProfileImage?: string;
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
@@ -19,8 +19,8 @@ export interface ChatRoom {
 
 // 채팅 메시지
 export interface ChatMessage {
-  id: string;
-  roomId: string;
+  messageId: number;
+  roomId: number;
   senderId: number;
   senderName: string;
   content: string;
@@ -28,9 +28,21 @@ export interface ChatMessage {
   isMine: boolean;
 }
 
-// STOMP 메시지 형식
+export interface ChatMessagesResponse {
+  messages: ChatMessage[];
+  hasMore: boolean;
+}
+
+// STOMP 요청 메시지 형식
 export interface StompChatMessage {
-  roomId: string;
+  senderId: number;
+  content: string;
+}
+
+// STOMP 응답 메시지 형식
+export interface StompChatMessageResponse {
+  messageId: number;
+  roomId: number;
   senderId: number;
   senderName: string;
   content: string;

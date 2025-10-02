@@ -1,8 +1,17 @@
 import { create } from "zustand";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
-import { ChatRoom, ChatMessage, StompChatMessage } from "./chatTypes";
+import {
+  ChatRoom,
+  ChatMessage,
+  StompChatMessage,
+  StompChatMessageResponse,
+} from "./chatTypes";
 import { useAuthStore } from "./authStore";
+import { jwtDecode } from "jwt-decode";
+import { fetchChatMessages } from "./http/chat";
+
+const pageSize = 50;
 
 interface ChatState {
   client: Client | null;
@@ -10,14 +19,17 @@ interface ChatState {
   activeChatRoom: ChatRoom | null;
   messages: ChatMessage[];
   isConnected: boolean;
+  hasMoreMessages: boolean;
+  isLoadingMessages: boolean;
 
   // Actions
   setActiveChatRoom: (room: ChatRoom) => void;
   addChatRoom: (room: ChatRoom) => void;
   addMessage: (message: ChatMessage) => void;
-  sendMessage: (roomId: string, content: string) => void;
+  sendMessage: (roomId: number, content: string) => void;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
+  loadMoreMessages: () => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -26,23 +38,63 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   activeChatRoom: null,
   messages: [],
   isConnected: false,
+  hasMoreMessages: true,
+  isLoadingMessages: false,
 
-  setActiveChatRoom: (room) => {
-    set({ activeChatRoom: room, messages: [] });
+  setActiveChatRoom: async (room) => {
+    // 1. 상태 초기화
+    set({
+      activeChatRoom: room,
+      messages: [],
+      hasMoreMessages: true,
+      isLoadingMessages: true,
+      chatRooms: get().chatRooms.map((r) =>
+        r.roomId === room.roomId ? { ...r, unreadCount: 0 } : r
+      ),
+    });
 
-    // 해당 채팅방의 메시지 구독
+    // 2. 과거 메시지 로드
+    try {
+      const { messages: rawMessages, hasMore } = await fetchChatMessages(
+        room.roomId,
+        undefined,
+        pageSize
+      );
+
+      const { accessToken } = useAuthStore.getState();
+      const currentUserId = getCurrentUserId(accessToken);
+
+      // isMine 계산
+      const messagesWithIsMine: ChatMessage[] = rawMessages
+        .reverse()
+        .map((msg: any) => ({
+          ...msg,
+          id: msg.id ?? msg.messageId,
+          isMine: msg.senderId === currentUserId,
+        }));
+
+      set({
+        messages: messagesWithIsMine,
+        hasMoreMessages: hasMore,
+        isLoadingMessages: false,
+      });
+    } catch (error) {
+      console.error("메시지 로드 실패:", error);
+      set({ isLoadingMessages: false });
+    }
+
+    // 3. WebSocket 구독 (실시간 메시지)
     const client = get().client;
     if (client && client.connected) {
-      // 이전 구독 해제는 STOMP에서 자동으로 관리됨
-      client.subscribe(`/topic/chat/${room.roomId}`, (message) => {
-        const receivedMessage: StompChatMessage = JSON.parse(message.body);
+      client.subscribe(`/topic/${room.roomId}`, (message) => {
+        const receivedMessage: StompChatMessageResponse = JSON.parse(
+          message.body
+        );
         const { accessToken } = useAuthStore.getState();
-
-        // 현재 사용자 ID 추출 (JWT 토큰에서 파싱 필요)
         const currentUserId = getCurrentUserId(accessToken);
 
         const chatMessage: ChatMessage = {
-          id: `${Date.now()}-${Math.random()}`,
+          messageId: receivedMessage.messageId,
           roomId: receivedMessage.roomId,
           senderId: receivedMessage.senderId,
           senderName: receivedMessage.senderName,
@@ -56,6 +108,44 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }
   },
 
+  loadMoreMessages: async () => {
+    const { activeChatRoom, messages, hasMoreMessages, isLoadingMessages } =
+      get();
+
+    if (!activeChatRoom || !hasMoreMessages || isLoadingMessages) return;
+
+    set({ isLoadingMessages: true });
+
+    try {
+      const oldestId = messages.length > 0 ? messages[0].messageId : undefined;
+      const { messages: olderMessages, hasMore } = await fetchChatMessages(
+        activeChatRoom.roomId,
+        oldestId,
+        pageSize
+      );
+
+      const { accessToken } = useAuthStore.getState();
+      const currentUserId = getCurrentUserId(accessToken);
+
+      const messagesWithIsMine: ChatMessage[] = olderMessages
+        .reverse()
+        .map((msg) => ({
+          ...msg,
+          isMine: msg.senderId === currentUserId,
+        }));
+
+      // 기존 메시지 앞에 붙이기
+      set((state) => ({
+        messages: [...messagesWithIsMine, ...state.messages],
+        hasMoreMessages: hasMore,
+        isLoadingMessages: false,
+      }));
+    } catch (error) {
+      console.error("이전 메시지 로드 실패:", error);
+      set({ isLoadingMessages: false });
+    }
+  },
+
   addChatRoom: (room) => {
     set((state) => {
       // 중복 체크
@@ -66,21 +156,31 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   },
 
   addMessage: (message) => {
-    set((state) => ({
-      messages: [...state.messages, message],
-      chatRooms: state.chatRooms.map((room) =>
-        room.roomId === message.roomId
-          ? {
-              ...room,
-              lastMessage: message.content,
-              lastMessageTime: message.timestamp,
-              unreadCount: message.isMine
-                ? room.unreadCount
-                : room.unreadCount + 1,
-            }
-          : room
-      ),
-    }));
+    set((state) => {
+      // 중복 메시지 방지
+      const exists = state.messages.some(
+        (m) => m.messageId === message.messageId
+      );
+      if (exists) return state;
+
+      return {
+        messages: [...state.messages, message],
+        chatRooms: state.chatRooms.map((room) =>
+          room.roomId === message.roomId
+            ? {
+                ...room,
+                lastMessage: message.content,
+                lastMessageTime: message.timestamp,
+                unreadCount:
+                  message.isMine ||
+                  state.activeChatRoom?.roomId === message.roomId
+                    ? room.unreadCount
+                    : room.unreadCount + 1,
+              }
+            : room
+        ),
+      };
+    });
   },
 
   sendMessage: (roomId, content) => {
@@ -93,19 +193,17 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }
 
     const currentUserId = getCurrentUserId(accessToken);
-    const currentUserName = getCurrentUserName(accessToken);
+    if (currentUserId === null) return;
 
     const message: StompChatMessage = {
-      roomId,
-      senderId: currentUserId || 0,
-      senderName: currentUserName || "Unknown",
+      senderId: currentUserId,
       content,
-      timestamp: new Date().toISOString(),
     };
 
     client.publish({
-      destination: `/app/chat/${roomId}`,
+      destination: `/publish/${roomId}`,
       body: JSON.stringify(message),
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
   },
 
@@ -166,30 +264,14 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   },
 }));
 
-// Helper 함수들
+// Helper 함수
 function getCurrentUserId(token: string | null): number | null {
   if (!token) return null;
-
   try {
-    // JWT 토큰의 payload 파싱
-    const payload = token.split(".")[1];
-    const decoded = JSON.parse(atob(payload));
-    return decoded.userId || decoded.sub || null;
+    const decoded = jwtDecode<{ sub: string }>(token);
+    return decoded.sub ? Number(decoded.sub) : null;
   } catch (error) {
-    console.error("토큰 파싱 실패:", error);
-    return null;
-  }
-}
-
-function getCurrentUserName(token: string | null): string | null {
-  if (!token) return null;
-
-  try {
-    const payload = token.split(".")[1];
-    const decoded = JSON.parse(atob(payload));
-    return decoded.name || decoded.username || null;
-  } catch (error) {
-    console.error("토큰 파싱 실패:", error);
+    console.error("JWT 디코딩 실패:", error);
     return null;
   }
 }
