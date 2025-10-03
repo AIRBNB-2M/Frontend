@@ -1,5 +1,10 @@
 import http from "./http";
-import { ChatUser, ChatRoom, ChatMessagesResponse } from "../chatTypes";
+import {
+  ChatUser,
+  ChatRoom,
+  ChatMessagesResponse,
+  UpdateChatRoomNameRequest,
+} from "../chatTypes";
 
 /**
  * 사용자 이름으로 검색
@@ -42,6 +47,21 @@ export async function createOrGetChatRoom(
   otherGuestId: number
 ): Promise<ChatRoom> {
   const response = await http.post("/api/chat/rooms", { otherGuestId });
+  return response.data;
+}
+
+/**
+ * 채팅방 이름 수정
+ */
+export async function updateChatRoomName(
+  roomId: number,
+  otherGuestId: number,
+  customName: string
+): Promise<ChatRoom> {
+  const response = await http.patch(`/api/chat/${roomId}/name`, {
+    customName,
+    otherGuestId,
+  } as UpdateChatRoomNameRequest);
   return response.data;
 }
 

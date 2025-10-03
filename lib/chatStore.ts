@@ -9,7 +9,7 @@ import {
 } from "./chatTypes";
 import { useAuthStore } from "./authStore";
 import { jwtDecode } from "jwt-decode";
-import { fetchChatMessages } from "./http/chat";
+import { fetchChatMessages, updateChatRoomName } from "./http/chat";
 
 const pageSize = 50;
 
@@ -30,6 +30,7 @@ interface ChatState {
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
   loadMoreMessages: () => Promise<void>;
+  updateRoomName: (room: ChatRoom, customName: string) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -205,6 +206,35 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       body: JSON.stringify(message),
       headers: { Authorization: `Bearer ${accessToken}` },
     });
+  },
+
+  updateRoomName: async (room, customName) => {
+    try {
+      const updatedRoom = await updateChatRoomName(
+        room.roomId,
+        room.guestId,
+        customName
+      );
+
+      set((state) => ({
+        chatRooms: state.chatRooms.map((room) =>
+          room.roomId === updatedRoom.roomId
+            ? { ...room, customRoomName: updatedRoom.customRoomName }
+            : room
+        ),
+        activeChatRoom:
+          state.activeChatRoom?.roomId === updatedRoom.roomId
+            ? {
+                ...state.activeChatRoom,
+                roomId: state.activeChatRoom.roomId,
+                customRoomName: updatedRoom.customRoomName,
+              }
+            : state.activeChatRoom,
+      }));
+    } catch (error) {
+      console.error("채팅방 이름 수정 실패:", error);
+      throw error;
+    }
   },
 
   connectWebSocket: () => {

@@ -9,6 +9,7 @@ export interface ChatUser {
 // 채팅방 정보
 export interface ChatRoom {
   roomId: number;
+  customRoomName: string;
   guestId: number;
   guestName: string;
   guestProfileImage?: string;
@@ -47,4 +48,9 @@ export interface StompChatMessageResponse {
   senderName: string;
   content: string;
   timestamp: string;
+}
+
+// 채팅방 이름 수정 요청
+export interface UpdateChatRoomNameRequest {
+  customName: string;
 }
