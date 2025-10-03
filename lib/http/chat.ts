@@ -68,6 +68,9 @@ export async function updateChatRoomName(
 /**
  * 채팅방 나가기
  */
-export async function leaveChatRoom(roomId: string): Promise<void> {
-  await http.delete(`/api/chat/rooms/${roomId}`);
+export async function leaveChatRoom(
+  roomId: number,
+  isActive: boolean
+): Promise<void> {
+  await http.post(`/api/chat/${roomId}`, { isActive });
 }

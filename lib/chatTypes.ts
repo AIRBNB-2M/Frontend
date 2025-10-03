@@ -13,6 +13,7 @@ export interface ChatRoom {
   guestId: number;
   guestName: string;
   guestProfileImage?: string;
+  isOtherGuestActive: boolean;
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;

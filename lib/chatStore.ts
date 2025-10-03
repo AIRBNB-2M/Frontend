@@ -9,7 +9,11 @@ import {
 } from "./chatTypes";
 import { useAuthStore } from "./authStore";
 import { jwtDecode } from "jwt-decode";
-import { fetchChatMessages, updateChatRoomName } from "./http/chat";
+import {
+  fetchChatMessages,
+  leaveChatRoom,
+  updateChatRoomName,
+} from "./http/chat";
 
 const pageSize = 50;
 
@@ -27,10 +31,11 @@ interface ChatState {
   addChatRoom: (room: ChatRoom) => void;
   addMessage: (message: ChatMessage) => void;
   sendMessage: (roomId: number, content: string) => void;
-  connectWebSocket: () => void;
+  connectWebSocket: (roomId: number) => void;
   disconnectWebSocket: () => void;
   loadMoreMessages: () => Promise<void>;
   updateRoomName: (room: ChatRoom, customName: string) => Promise<void>;
+  leaveChatRoom: (roomId: number, isActive: boolean) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -87,25 +92,29 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     // 3. WebSocket 구독 (실시간 메시지)
     const client = get().client;
     if (client && client.connected) {
-      client.subscribe(`/topic/${room.roomId}`, (message) => {
-        const receivedMessage: StompChatMessageResponse = JSON.parse(
-          message.body
-        );
-        const { accessToken } = useAuthStore.getState();
-        const currentUserId = getCurrentUserId(accessToken);
+      client.subscribe(
+        `/topic/${room.roomId}`,
+        (message) => {
+          const receivedMessage: StompChatMessageResponse = JSON.parse(
+            message.body
+          );
+          const { accessToken } = useAuthStore.getState();
+          const currentUserId = getCurrentUserId(accessToken);
 
-        const chatMessage: ChatMessage = {
-          messageId: receivedMessage.messageId,
-          roomId: receivedMessage.roomId,
-          senderId: receivedMessage.senderId,
-          senderName: receivedMessage.senderName,
-          content: receivedMessage.content,
-          timestamp: receivedMessage.timestamp,
-          isMine: receivedMessage.senderId === currentUserId,
-        };
+          const chatMessage: ChatMessage = {
+            messageId: receivedMessage.messageId,
+            roomId: receivedMessage.roomId,
+            senderId: receivedMessage.senderId,
+            senderName: receivedMessage.senderName,
+            content: receivedMessage.content,
+            timestamp: receivedMessage.timestamp,
+            isMine: receivedMessage.senderId === currentUserId,
+          };
 
-        get().addMessage(chatMessage);
-      });
+          get().addMessage(chatMessage);
+        },
+        { Authorization: `Bearer ${useAuthStore.getState().accessToken}` }
+      );
     }
   },
 
@@ -237,7 +246,33 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }
   },
 
-  connectWebSocket: () => {
+  leaveChatRoom: async (roomId, isActive) => {
+    try {
+      await leaveChatRoom(roomId, isActive);
+
+      // 상태 업데이트
+      set((state) => ({
+        chatRooms: state.chatRooms.filter((room) => room.roomId !== roomId),
+        // 현재 활성화된 채팅방이 나간 방이면 초기화
+        activeChatRoom:
+          state.activeChatRoom?.roomId === roomId ? null : state.activeChatRoom,
+        // 나간 방의 메시지도 초기화
+        messages: state.activeChatRoom?.roomId === roomId ? [] : state.messages,
+      }));
+
+      // WebSocket 구독 해제
+      const client = get().client;
+      if (client && client.connected) {
+        // STOMP 클라이언트에서 해당 방 구독 해제
+        client.unsubscribe(`/topic/${roomId}`);
+      }
+    } catch (error) {
+      console.error("채팅방 나가기 실패:", error);
+      throw error;
+    }
+  },
+
+  connectWebSocket: (roomId) => {
     const { accessToken } = useAuthStore.getState();
 
     if (!accessToken) {
@@ -254,9 +289,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       debug: (str) => {
         console.log("STOMP Debug:", str);
       },
-      reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
+      reconnectDelay: 0,
     });
 
     client.onConnect = () => {
@@ -264,10 +299,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       set({ isConnected: true });
 
       // 개인 메시지 구독
-      const currentUserId = getCurrentUserId(accessToken);
-      client.subscribe(`/user/${currentUserId}/queue/messages`, (message) => {
-        console.log("개인 메시지 수신:", message.body);
-      });
+      client.subscribe(
+        `/topic/${roomId}`,
+        (message) => {
+          console.log("개인 메시지 수신:", message.body);
+        },
+        { Authorization: `Bearer ${accessToken}` }
+      );
     };
 
     client.onStompError = (frame) => {
@@ -289,8 +327,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     const client = get().client;
     if (client) {
       client.deactivate();
-      set({ client: null, isConnected: false });
     }
+    set({
+      client: null,
+      isConnected: false,
+      activeChatRoom: null,
+      messages: [],
+      hasMoreMessages: true,
+      isLoadingMessages: false,
+      chatRooms: [],
+    });
   },
 }));
 

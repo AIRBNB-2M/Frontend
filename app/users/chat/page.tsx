@@ -1,29 +1,32 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import Header from "@/components/Header";
-import {
-  Search,
-  Send,
-  X,
-  Loader2,
-  Edit2,
-  Check,
-  MoreVertical,
-  UserX,
-} from "lucide-react";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { useAuthStore } from "@/lib/authStore";
 import { useChatStore } from "@/lib/chatStore";
-import { ChatUser, ChatMessage, ChatRoom } from "@/lib/chatTypes";
+import { ChatMessage, ChatRoom, ChatUser } from "@/lib/chatTypes";
 import {
-  searchUsers,
   createOrGetChatRoom,
   fetchChatRooms,
+  searchUsers,
 } from "@/lib/http/chat";
 import { format, isToday, isYesterday } from "date-fns";
 import { ko } from "date-fns/locale";
-import { useAuthStore } from "@/lib/authStore";
 import { jwtDecode } from "jwt-decode";
-import { useRequireAuth } from "@/hooks/useRequireAuth";
+import {
+  AlertCircle,
+  Check,
+  Edit2,
+  Loader2,
+  MessageCircle,
+  MoreVertical,
+  Search,
+  Send,
+  UserX,
+  X,
+} from "lucide-react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 // 날짜별 메시지 그룹 인터페이스
 interface GroupedMessage {
@@ -116,22 +119,49 @@ export default function ChatPage() {
     addChatRoom,
     loadMoreMessages,
     updateRoomName,
+    leaveChatRoom,
   } = useChatStore();
 
   const [messageInput, setMessageInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const previousScrollHeightRef = useRef<number>(0);
+  const pathname = usePathname();
+  const previousPathname = useRef(pathname);
+
+  useEffect(() => {
+    if (previousPathname.current !== pathname) {
+      if (activeChatRoom) {
+        console.log(
+          `Route change - marking room ${activeChatRoom.roomId} as read`
+        );
+      }
+      previousPathname.current = pathname;
+    }
+  }, [pathname, activeChatRoom]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (activeChatRoom) {
+        alert(`Before unload - marking as read for room`);
+        // e.preventDefault();
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [activeChatRoom]);
 
   // WebSocket 연결 & 채팅방 목록 로드
   useEffect(() => {
     if (!isAuthChecked || !isAuthenticated) return;
-    connectWebSocket();
+    connectWebSocket(activeChatRoom ? activeChatRoom.roomId : -1);
 
     const loadChatRooms = async () => {
       try {
         const rooms = await fetchChatRooms();
-        console.log("Fetched chat rooms:", rooms);
         rooms.forEach((room) => addChatRoom(room));
       } catch (error) {
         console.error("채팅방 목록 로드 실패:", error);
@@ -141,6 +171,10 @@ export default function ChatPage() {
     loadChatRooms();
     return () => {
       disconnectWebSocket();
+      if (activeChatRoom !== null) {
+        alert("채팅방 페이지를 나갑니다.");
+        console.log(`Marking room ${activeChatRoom.roomId} as read on exit`);
+      }
     };
   }, [isAuthChecked, isAuthenticated]);
 
@@ -267,14 +301,19 @@ export default function ChatPage() {
   };
 
   // 채팅방 나가기
-  const handleLeaveRoom = async (roomId: number) => {
+  const handleLeaveRoom = async (roomId: number, isActive: boolean) => {
     if (!confirm("정말 이 채팅방을 나가시겠습니까?")) {
       return;
     }
 
     setContextMenuRoomId(null);
-    // TODO: 채팅방 나가기 API 호출 및 상태 업데이트
-    alert("채팅방 나가기 기능은 준비중입니다.");
+    try {
+      await leaveChatRoom(roomId, isActive);
+      alert("채팅방을 나갔습니다.");
+    } catch (error) {
+      console.error("채팅방 나가기 실패:", error);
+      alert("채팅방 나가기에 실패했습니다. 다시 시도해주세요.");
+    }
   };
 
   // 채팅방 이름 수정 취소
@@ -303,6 +342,11 @@ export default function ChatPage() {
   // 메시지 전송
   const handleSendMessage = () => {
     if (!messageInput.trim() || !activeChatRoom) return;
+
+    if (!activeChatRoom.isOtherGuestActive) {
+      alert("대화 상대가 채팅방을 나갔습니다");
+      return;
+    }
 
     sendMessage(activeChatRoom.roomId, messageInput);
     setMessageInput("");
@@ -460,7 +504,7 @@ export default function ChatPage() {
                       )}
                       {editingRoomId !== room.roomId && (
                         <p className="text-sm text-gray-600 truncate">
-                          {room.lastMessage || "메시지를 시작하세요"}
+                          {room.lastMessage || "대화를 시작하세요"}
                         </p>
                       )}
                     </div>
@@ -491,7 +535,12 @@ export default function ChatPage() {
 
                         <div className="border-t border-gray-200 my-1"></div>
                         <button
-                          onClick={() => handleLeaveRoom(room.roomId)}
+                          onClick={() =>
+                            handleLeaveRoom(
+                              room.roomId,
+                              activeChatRoom?.roomId === room.roomId
+                            )
+                          }
                           className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-red-600"
                         >
                           <UserX size={14} />
@@ -555,10 +604,9 @@ export default function ChatPage() {
                 )}
 
                 {messages.length === 0 && !isLoadingMessages ? (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-gray-500">
-                      {getDisplayName(activeChatRoom)}님과 대화를 시작하세요
-                    </p>
+                  <div className="flex flex-col items-center justify-center h-full gap-2">
+                    <MessageCircle className="w-12 h-12 text-gray-300 animate-bounce" />
+                    <p className="text-gray-500">대화를 시작해보세요</p>
                   </div>
                 ) : (
                   groupedMessages.map((group) => (
@@ -611,6 +659,22 @@ export default function ChatPage() {
                 )}
                 <div ref={messagesEndRef} />
               </div>
+
+              {!activeChatRoom.isOtherGuestActive && (
+                <div className="px-4 pb-2">
+                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
+                    <div className="flex items-center">
+                      <AlertCircle
+                        className="text-yellow-400 mr-2 flex-shrink-0"
+                        size={20}
+                      />
+                      <p className="text-sm text-yellow-700">
+                        대화 상대가 채팅방을 나갔습니다.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* 메시지 입력 영역 */}
               <div className="p-4 border-t border-gray-200">
