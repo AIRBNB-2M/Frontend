@@ -163,7 +163,9 @@ export default function PropertyCard({
             {rating !== undefined && (
               <div className="flex items-center gap-1 ml-2">
                 <Star className="w-3 h-3 text-black fill-black" />
-                <span className="text-sm text-gray-900">{rating}</span>
+                <span className="text-sm text-gray-900">
+                  {rating.toFixed(1)}
+                </span>
               </div>
             )}
           </div>

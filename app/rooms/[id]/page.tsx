@@ -701,7 +701,12 @@ function AccommodationDetailContent() {
                   </div>
                 </div>
 
-                <button className="w-full bg-pink-500 text-white py-3 rounded-lg font-semibold hover:bg-pink-600 transition-colors mb-4">
+                <button
+                  className="w-full bg-pink-500 text-white py-3 rounded-lg font-semibold hover:bg-pink-600 transition-colors mb-4"
+                  onClick={() => {
+                    alert("서비스 준비 중입니다.");
+                  }}
+                >
                   예약하기
                 </button>
 
