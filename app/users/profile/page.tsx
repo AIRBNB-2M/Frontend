@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Briefcase, CalendarCheck, Luggage, MessageCircle } from "lucide-react";
+import { Briefcase, CalendarCheck, MessageCircle } from "lucide-react";
 import { DefaultProfileResDto, ProfileUpdateResponse } from "@/lib/users";
 import Loader from "@/components/Loader";
 import Header from "@/components/Header";
 import AboutTab from "@/components/profile/AboutTab";
-import Link from "next/link";
 import { fetchMyProfile, updateMyProfile } from "@/lib/http/profile";
+import PastTripsTab from "./PastTripsTab";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<DefaultProfileResDto | null>(null);
@@ -106,7 +106,7 @@ export default function ProfilePage() {
                     <button
                       onClick={() => setActiveTab("past-trips")}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                        activeTab === "trips"
+                        activeTab === "past-trips"
                           ? "bg-gray-100"
                           : "hover:bg-gray-50"
                       }`}
@@ -168,29 +168,7 @@ export default function ProfilePage() {
               )}
 
               {/* 이전 여행 탭 내용 */}
-              {activeTab === "past-trips" && (
-                <div className="bg-white rounded-2xl p-8">
-                  <h2 className="text-2xl font-semibold text-gray-900 mb-8">
-                    이전 여행
-                  </h2>
-
-                  <div className="text-center py-16">
-                    <div className="flex items-center justify-center w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full">
-                      <Luggage className="w-12 h-12 text-gray-500" />
-                    </div>
-                    <p className="text-gray-600 text-lg mb-6">
-                      에어비앤비에서 첫 여행을 마치면 여기에 이전 예약 내역이
-                      표시됩니다.
-                    </p>
-                    <Link
-                      href="/"
-                      className="inline-block px-6 py-3 bg-pink-500 text-white rounded-lg hover:bg-pink-600 font-medium"
-                    >
-                      예약하러 가기
-                    </Link>
-                  </div>
-                </div>
-              )}
+              {activeTab === "past-trips" && <PastTripsTab />}
 
               {/* 내가 작성한 후기 탭 내용 */}
               {activeTab === "reviews" && (
