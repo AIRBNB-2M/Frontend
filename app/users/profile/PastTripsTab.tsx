@@ -1,12 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  Luggage,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Star,
-} from "lucide-react";
+import { Luggage, Calendar, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import Link from "next/link";
@@ -308,65 +301,46 @@ export default function PastTripsTab() {
 
               {/* 별점 선택 */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  별점: {rating > 0 ? rating.toFixed(1) : "선택 안 함"}
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  별점 (0.0 ~ 5.0)
                 </label>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <div
-                      key={star}
-                      className="relative"
-                      onMouseLeave={() => setHoverRating(0)}
-                    >
-                      {/* 왼쪽 절반 (0.5점) */}
-                      <button
-                        type="button"
-                        onClick={() => setRating(star - 0.5)}
-                        onMouseEnter={() => setHoverRating(star - 0.5)}
-                        className="absolute left-0 w-1/2 h-full z-10"
-                      />
-                      {/* 오른쪽 절반 (1점) */}
-                      <button
-                        type="button"
-                        onClick={() => setRating(star)}
-                        onMouseEnter={() => setHoverRating(star)}
-                        className="absolute right-0 w-1/2 h-full z-10"
-                      />
-                      <Star
-                        className={`w-10 h-10 ${
-                          (hoverRating || rating) >= star
-                            ? "fill-yellow-400 text-yellow-400"
-                            : (hoverRating || rating) >= star - 0.5
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-gray-300"
-                        }`}
-                        style={{
-                          clipPath:
-                            (hoverRating || rating) >= star - 0.5 &&
-                            (hoverRating || rating) < star
-                              ? "inset(0 50% 0 0)"
-                              : "none",
-                        }}
-                      />
-                      {(hoverRating || rating) >= star - 0.5 &&
-                        (hoverRating || rating) < star && (
-                          <Star className="w-10 h-10 text-gray-300 absolute top-0 left-0 -z-10" />
-                        )}
-                    </div>
-                  ))}
-                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  value={rating || ""}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    if (!isNaN(value) && value >= 0 && value <= 5) {
+                      setRating(Math.round(value * 10) / 10);
+                    } else if (e.target.value === "") {
+                      setRating(0);
+                    }
+                  }}
+                  placeholder="예: 4.5"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                />
               </div>
 
               {/* 리뷰 텍스트 */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   리뷰 내용
+                  <span className="text-gray-500 text-xs ml-2">
+                    ({reviewText.length}/100)
+                  </span>
                 </label>
                 <textarea
                   value={reviewText}
-                  onChange={(e) => setReviewText(e.target.value)}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 100) {
+                      setReviewText(e.target.value);
+                    }
+                  }}
                   placeholder="숙소에 대한 솔직한 후기를 남겨주세요."
                   rows={6}
+                  maxLength={100}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
                 />
               </div>
