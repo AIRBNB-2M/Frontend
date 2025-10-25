@@ -8,6 +8,7 @@ import Header from "@/components/Header";
 import AboutTab from "@/components/profile/AboutTab";
 import { fetchMyProfile, updateMyProfile } from "@/lib/http/profile";
 import PastTripsTab from "./PastTripsTab";
+import ReviewsTab from "./ReviewsTab";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<DefaultProfileResDto | null>(null);
@@ -171,44 +172,7 @@ export default function ProfilePage() {
               {activeTab === "past-trips" && <PastTripsTab />}
 
               {/* 내가 작성한 후기 탭 내용 */}
-              {activeTab === "reviews" && (
-                <div className="bg-white rounded-2xl p-8">
-                  <h2 className="text-3xl font-bold text-gray-900 mb-8">
-                    내가 작성한 후기
-                  </h2>
-
-                  {/* 탭 */}
-                  <div className="flex border-b mb-8">
-                    <button className="px-1 py-3 text-gray-600 border-b-2 border-transparent">
-                      나에 대한 후기
-                    </button>
-                    <button className="px-1 py-3 ml-8 text-gray-900 border-b-2 border-gray-900 font-medium">
-                      내가 작성한 후기
-                    </button>
-                  </div>
-
-                  {/* 작성해야 할 후기 */}
-                  <div className="mb-12">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                      작성해야 할 후기
-                    </h3>
-                    <p className="text-gray-600">
-                      현재 작성할 후기가 없습니다. 여행을 한번 다녀올 때가 된 것
-                      같네요!
-                    </p>
-                  </div>
-
-                  {/* 내가 작성한 후기 */}
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                      내가 작성한 후기
-                    </h3>
-                    <p className="text-gray-600">
-                      아직 후기를 남기지 않으셨습니다.
-                    </p>
-                  </div>
-                </div>
-              )}
+              {activeTab === "reviews" && <ReviewsTab />}
             </div>
           </div>
         </div>
