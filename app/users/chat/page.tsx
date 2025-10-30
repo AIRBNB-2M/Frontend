@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useAuthStore } from "@/lib/authStore";
 import { useChatStore } from "@/lib/chatStore";
-import { ChatRoom, ChatUser } from "@/lib/chatTypes";
+import { ChatMessage, ChatRoom, ChatUser } from "@/lib/chatTypes";
 import {
   fetchChatRooms,
   fetchReceivedChatRequests,
@@ -12,6 +12,8 @@ import {
   requestChat,
   searchUsers,
 } from "@/lib/http/chat";
+import { format, isToday, isYesterday } from "date-fns";
+import { ko } from "date-fns/locale/ko";
 import { jwtDecode } from "jwt-decode";
 import {
   Bell,
@@ -26,6 +28,47 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
+// 날짜별 메시지 그룹 인터페이스
+interface GroupedMessage {
+  date: string;
+  dateLabel: string;
+  messages: ChatMessage[];
+}
+
+// 날짜별 메시지 그룹화 함수
+function groupMessagesByDate(messages: ChatMessage[]): GroupedMessage[] {
+  const grouped: { [key: string]: ChatMessage[] } = {};
+
+  messages.forEach((message) => {
+    const messageDate = new Date(message.timestamp);
+    const dateKey = format(messageDate, "yyyy-MM-dd");
+
+    if (!grouped[dateKey]) {
+      grouped[dateKey] = [];
+    }
+    grouped[dateKey].push(message);
+  });
+
+  return Object.entries(grouped).map(([date, msgs]) => {
+    const dateObj = new Date(date);
+    let dateLabel: string;
+
+    if (isToday(dateObj)) {
+      dateLabel = "오늘";
+    } else if (isYesterday(dateObj)) {
+      dateLabel = "어제";
+    } else {
+      dateLabel = format(dateObj, "yyyy년 M월 d일 (E)", { locale: ko });
+    }
+
+    return {
+      date,
+      dateLabel,
+      messages: msgs,
+    };
+  });
+}
 
 export default function ChatPage() {
   const { isAuthChecked, isAuthenticated } = useRequireAuth();
@@ -61,12 +104,17 @@ export default function ChatPage() {
   const {
     chatRooms,
     activeChatRoom,
+    messages,
+    hasMoreMessages,
+    isLoadingMessages,
+    sendMessage,
     receivedRequests,
     sentRequests,
     pendingRequestNotification,
     connectWebSocket,
     disconnectWebSocket,
     addChatRoom,
+    loadMoreMessages,
     addReceivedRequest,
     addSentRequest,
     clearRequestNotification,
@@ -76,6 +124,11 @@ export default function ChatPage() {
     updateRoomName,
     leaveChatRoom,
   } = useChatStore();
+
+  const [messageInput, setMessageInput] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const previousScrollHeightRef = useRef<number>(0);
 
   // WebSocket 연결 & 초기 데이터 로드
   useEffect(() => {
@@ -107,6 +160,35 @@ export default function ChatPage() {
       disconnectWebSocket();
     };
   }, [isAuthChecked, isAuthenticated]);
+
+  // 메시지 자동 스크롤
+  useEffect(() => {
+    if (!isLoadingMessages) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isLoadingMessages]);
+
+  // 무한 스크롤 핸들러
+  const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+
+    // 스크롤이 맨 위에서 50px 이내에 도달했을 때 (여유 공간 추가)
+    if (scrollTop < 100 && hasMoreMessages && !isLoadingMessages) {
+      // 현재 스크롤 높이 저장
+      previousScrollHeightRef.current = scrollHeight;
+
+      // 이전 메시지 로드
+      await loadMoreMessages();
+
+      // 로드 후 스크롤 위치 복원
+      requestAnimationFrame(() => {
+        const newScrollHeight = container.scrollHeight;
+        const scrollDiff = newScrollHeight - previousScrollHeightRef.current;
+        container.scrollTop = scrollDiff;
+      });
+    }
+  };
 
   // 사용자 검색
   const handleSearch = async () => {
@@ -188,6 +270,25 @@ export default function ChatPage() {
       alert("요청 거절에 실패했습니다. 다시 시도해주세요.");
     }
   };
+
+  // 메시지 전송
+  const handleSendMessage = () => {
+    if (!messageInput.trim() || !activeChatRoom) return;
+
+    sendMessage(activeChatRoom.roomId, messageInput);
+    setMessageInput("");
+  };
+
+  // 엔터키로 메시지 전송
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  // 날짜별로 그룹화된 메시지
+  const groupedMessages = groupMessagesByDate(messages);
 
   // 시간 포맷팅
   const formatTimeRemaining = (expiresAt: string) => {
@@ -471,10 +572,146 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* 우측 채팅 영역 - 기존 코드 유지 */}
-        <div className="flex-1 flex flex-col">{/* ... 기존 채팅 UI ... */}</div>
-      </div>
+        {/* 우측 채팅 영역 */}
+        <div className="flex-1 flex flex-col">
+          {activeChatRoom ? (
+            <>
+              {/* 채팅방 헤더 */}
+              <div className="p-4 border-b border-gray-200 flex items-center gap-3">
+                <img
+                  src={
+                    activeChatRoom.guestProfileImage ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      activeChatRoom.guestName
+                    )}&background=random`
+                  }
+                  alt={activeChatRoom.guestName}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+                <div>
+                  <h2 className="font-semibold text-gray-900">
+                    {activeChatRoom.guestName}
+                  </h2>
+                </div>
+              </div>
 
+              {/* 메시지 영역 */}
+              <div
+                ref={messagesContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-4 space-y-4"
+                style={{ overflowY: "auto", maxHeight: "100%" }}
+              >
+                {/* 로딩 인디케이터 (상단) */}
+                {isLoadingMessages && (
+                  <div className="flex justify-center py-2">
+                    <Loader2 className="animate-spin text-pink-500" size={24} />
+                  </div>
+                )}
+
+                {/* 더 이상 메시지가 없을 때 */}
+                {!hasMoreMessages && messages.length > 0 && (
+                  <div className="flex justify-center py-2">
+                    <span className="text-xs text-gray-400">
+                      대화의 시작입니다
+                    </span>
+                  </div>
+                )}
+
+                {messages.length === 0 && !isLoadingMessages ? (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-gray-500">
+                      {activeChatRoom.guestName}님과 대화를 시작하세요
+                    </p>
+                  </div>
+                ) : (
+                  groupedMessages.map((group) => (
+                    <div key={`date-group-${group.date}`} className="space-y-4">
+                      {/* 날짜 구분선 */}
+                      <div className="flex items-center justify-center my-6">
+                        <div className="flex-1 border-t border-gray-300"></div>
+                        <span className="px-4 text-sm text-gray-500 font-medium bg-white">
+                          {group.dateLabel}
+                        </span>
+                        <div className="flex-1 border-t border-gray-300"></div>
+                      </div>
+
+                      {/* 해당 날짜의 메시지들 */}
+                      {group.messages.map((msg) => (
+                        <div
+                          key={`message-${msg.messageId}`}
+                          className={`flex ${
+                            msg.isMine ? "justify-end" : "justify-start"
+                          }`}
+                        >
+                          <div
+                            className={`max-w-[70%] ${
+                              msg.isMine ? "items-end" : "items-start"
+                            }`}
+                          >
+                            <div
+                              className={`rounded-2xl px-4 py-2 ${
+                                msg.isMine
+                                  ? "bg-pink-500 text-white"
+                                  : "bg-gray-200 text-gray-900"
+                              }`}
+                            >
+                              <p className="whitespace-pre-wrap break-words">
+                                {msg.content}
+                              </p>
+                            </div>
+                            <span className="text-xs text-gray-500 mt-1 px-2">
+                              {new Date(msg.timestamp).toLocaleTimeString(
+                                "ko-KR",
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* 메시지 입력 영역 */}
+              <div className="p-4 border-t border-gray-200">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder="메시지를 입력하세요..."
+                    className="flex-1 resize-none border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:border-pink-500 max-h-32"
+                    rows={1}
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!messageInput.trim()}
+                    className="p-3 bg-pink-500 text-white rounded-full hover:bg-pink-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send size={20} />
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-gray-500">
+              <div className="text-center">
+                <i className="ri-chat-3-line text-6xl mb-4 text-gray-300"></i>
+                <p className="text-lg">대화를 선택하세요</p>
+                <p className="text-sm mt-2">
+                  왼쪽에서 대화를 선택하거나 새 채팅을 시작하세요
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
       {/* 사용자 검색 모달 */}
       {showSearchModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
