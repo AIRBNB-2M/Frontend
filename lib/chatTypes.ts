@@ -6,6 +6,27 @@ export interface ChatUser {
   profileImageUrl?: string;
 }
 
+// 채팅 요청 상태
+export enum RequestChatStatus {
+  PENDING = "PENDING",
+  ACCEPTED = "ACCEPTED",
+  REJECTED = "REJECTED",
+  EXPIRED = "EXPIRED",
+}
+
+// 채팅 요청 정보
+export interface ChatRequest {
+  requestId: string;
+  senderId: number;
+  senderName: string;
+  senderProfileImage?: string;
+  receiverId: number;
+  receiverName: string;
+  receiverProfileImage?: string;
+  status: RequestChatStatus;
+  expiresAt: string;
+}
+
 // 채팅방 정보
 export interface ChatRoom {
   roomId: number;
@@ -51,7 +72,25 @@ export interface StompChatMessageResponse {
   timestamp: string;
 }
 
+// STOMP 채팅 요청 알림
+export interface StompChatRequestNotification {
+  requestId: string;
+  senderId: number;
+  senderName: string;
+  senderProfileImage?: string;
+  expiresAt: string;
+}
+
+// STOMP 채팅 요청 응답 알림
+export interface StompChatRequestResponseNotification {
+  requestId: string;
+  accepted: boolean;
+  roomId?: number;
+  message: string;
+}
+
 // 채팅방 이름 수정 요청
 export interface UpdateChatRoomNameRequest {
   customName: string;
+  otherGuestId: number;
 }

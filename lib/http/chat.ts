@@ -4,6 +4,7 @@ import {
   ChatRoom,
   ChatMessagesResponse,
   UpdateChatRoomNameRequest,
+  ChatRequest,
 } from "../chatTypes";
 
 /**
@@ -14,6 +15,45 @@ export async function searchUsers(name: string): Promise<ChatUser[]> {
     params: { name },
   });
   return response.data.guests;
+}
+
+/**
+ * 채팅 요청 보내기
+ */
+export async function requestChat(receiverId: number): Promise<ChatRequest> {
+  const response = await http.post("/api/chat/requests", { receiverId });
+  return response.data;
+}
+
+/**
+ * 채팅 요청 수락
+ */
+export async function acceptChatRequest(requestId: string): Promise<ChatRoom> {
+  const response = await http.post(`/api/chat/requests/${requestId}/accept`);
+  return response.data;
+}
+
+/**
+ * 채팅 요청 거절
+ */
+export async function rejectChatRequest(requestId: string): Promise<void> {
+  await http.post(`/api/chat/requests/${requestId}/reject`);
+}
+
+/**
+ * 받은 채팅 요청 목록 조회
+ */
+export async function fetchReceivedChatRequests(): Promise<ChatRequest[]> {
+  const response = await http.get("/api/chat/requests/received");
+  return response.data;
+}
+
+/**
+ * 보낸 채팅 요청 목록 조회
+ */
+export async function fetchSentChatRequests(): Promise<ChatRequest[]> {
+  const response = await http.get("/api/chat/requests/sent");
+  return response.data;
 }
 
 /**

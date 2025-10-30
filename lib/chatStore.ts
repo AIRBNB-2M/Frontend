@@ -6,6 +6,9 @@ import {
   ChatMessage,
   StompChatMessage,
   StompChatMessageResponse,
+  ChatRequest,
+  StompChatRequestNotification,
+  StompChatRequestResponseNotification,
 } from "./chatTypes";
 import { useAuthStore } from "./authStore";
 import { jwtDecode } from "jwt-decode";
@@ -13,6 +16,8 @@ import {
   fetchChatMessages,
   leaveChatRoom,
   updateChatRoomName,
+  acceptChatRequest,
+  rejectChatRequest,
 } from "./http/chat";
 
 const pageSize = 50;
@@ -26,6 +31,11 @@ interface ChatState {
   hasMoreMessages: boolean;
   isLoadingMessages: boolean;
 
+  // 채팅 요청 관련
+  receivedRequests: ChatRequest[];
+  sentRequests: ChatRequest[];
+  pendingRequestNotification: StompChatRequestNotification | null;
+
   // Actions
   setActiveChatRoom: (room: ChatRoom) => void;
   addChatRoom: (room: ChatRoom) => void;
@@ -36,6 +46,20 @@ interface ChatState {
   loadMoreMessages: () => Promise<void>;
   updateRoomName: (room: ChatRoom, customName: string) => Promise<void>;
   leaveChatRoom: (roomId: number, isActive: boolean) => Promise<void>;
+
+  // 채팅 요청 관련 액션
+  addReceivedRequest: (request: ChatRequest) => void;
+  addSentRequest: (request: ChatRequest) => void;
+  removeRequest: (requestId: string) => void;
+  handleChatRequestNotification: (
+    notification: StompChatRequestNotification
+  ) => void;
+  handleChatRequestResponse: (
+    notification: StompChatRequestResponseNotification
+  ) => void;
+  acceptRequest: (requestId: string) => Promise<ChatRoom>;
+  rejectRequest: (requestId: string) => Promise<void>;
+  clearRequestNotification: () => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -46,9 +70,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   isConnected: false,
   hasMoreMessages: true,
   isLoadingMessages: false,
+  receivedRequests: [],
+  sentRequests: [],
+  pendingRequestNotification: null,
 
   setActiveChatRoom: async (room) => {
-    // 1. 상태 초기화
     set({
       activeChatRoom: room,
       messages: [],
@@ -59,7 +85,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       ),
     });
 
-    // 2. 과거 메시지 로드
     try {
       const { messages: rawMessages, hasMore } = await fetchChatMessages(
         room.roomId,
@@ -70,7 +95,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       const { accessToken } = useAuthStore.getState();
       const currentUserId = getCurrentUserId(accessToken);
 
-      // isMine 계산
       const messagesWithIsMine: ChatMessage[] = rawMessages
         .reverse()
         .map((msg: any) => ({
@@ -89,7 +113,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       set({ isLoadingMessages: false });
     }
 
-    // 3. WebSocket 구독 (실시간 메시지)
     const client = get().client;
     if (client && client.connected) {
       client.subscribe(
@@ -144,7 +167,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
           isMine: msg.senderId === currentUserId,
         }));
 
-      // 기존 메시지 앞에 붙이기
       set((state) => ({
         messages: [...messagesWithIsMine, ...state.messages],
         hasMoreMessages: hasMore,
@@ -158,7 +180,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   addChatRoom: (room) => {
     set((state) => {
-      // 중복 체크
       const exists = state.chatRooms.some((r) => r.roomId === room.roomId);
       if (exists) return state;
       return { chatRooms: [...state.chatRooms, room] };
@@ -167,7 +188,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   addMessage: (message) => {
     set((state) => {
-      // 중복 메시지 방지
       const exists = state.messages.some(
         (m) => m.messageId === message.messageId
       );
@@ -250,24 +270,84 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     try {
       await leaveChatRoom(roomId, isActive);
 
-      // 상태 업데이트
       set((state) => ({
         chatRooms: state.chatRooms.filter((room) => room.roomId !== roomId),
-        // 현재 활성화된 채팅방이 나간 방이면 초기화
         activeChatRoom:
           state.activeChatRoom?.roomId === roomId ? null : state.activeChatRoom,
-        // 나간 방의 메시지도 초기화
         messages: state.activeChatRoom?.roomId === roomId ? [] : state.messages,
       }));
 
-      // WebSocket 구독 해제
       const client = get().client;
       if (client && client.connected) {
-        // STOMP 클라이언트에서 해당 방 구독 해제
         client.unsubscribe(`/topic/${roomId}`);
       }
     } catch (error) {
       console.error("채팅방 나가기 실패:", error);
+      throw error;
+    }
+  },
+
+  addReceivedRequest: (request) => {
+    set((state) => ({
+      receivedRequests: [...state.receivedRequests, request],
+    }));
+  },
+
+  addSentRequest: (request) => {
+    set((state) => ({
+      sentRequests: [...state.sentRequests, request],
+    }));
+  },
+
+  removeRequest: (requestId) => {
+    set((state) => ({
+      receivedRequests: state.receivedRequests.filter(
+        (r) => r.requestId !== requestId
+      ),
+      sentRequests: state.sentRequests.filter((r) => r.requestId !== requestId),
+    }));
+  },
+
+  handleChatRequestNotification: (notification) => {
+    set({ pendingRequestNotification: notification });
+  },
+
+  handleChatRequestResponse: (notification) => {
+    const { requestId, accepted, roomId, message } = notification;
+
+    get().removeRequest(requestId);
+
+    if (accepted && roomId) {
+      // 채팅방이 생성되었으므로 채팅방 목록을 다시 불러와야 함
+      console.log("채팅 요청이 수락되었습니다. 채팅방 ID:", roomId);
+    }
+
+    // 알림 표시
+    alert(message);
+  },
+
+  clearRequestNotification: () => {
+    set({ pendingRequestNotification: null });
+  },
+
+  acceptRequest: async (requestId) => {
+    try {
+      const chatRoom = await acceptChatRequest(requestId);
+      get().removeRequest(requestId);
+      get().addChatRoom(chatRoom);
+      return chatRoom;
+    } catch (error) {
+      console.error("채팅 요청 수락 실패:", error);
+      throw error;
+    }
+  },
+
+  rejectRequest: async (requestId) => {
+    try {
+      await rejectChatRequest(requestId);
+      get().removeRequest(requestId);
+    } catch (error) {
+      console.error("채팅 요청 거절 실패:", error);
       throw error;
     }
   },
@@ -298,14 +378,42 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       console.log("WebSocket 연결 성공");
       set({ isConnected: true });
 
-      // 개인 메시지 구독
+      const currentUserId = getCurrentUserId(accessToken);
+
+      // 개인 채팅 요청 알림 구독
       client.subscribe(
-        `/topic/${roomId}`,
+        `/user/${currentUserId}/queue/chat-requests`,
         (message) => {
-          console.log("개인 메시지 수신:", message.body);
+          const notification: StompChatRequestNotification = JSON.parse(
+            message.body
+          );
+          get().handleChatRequestNotification(notification);
         },
         { Authorization: `Bearer ${accessToken}` }
       );
+
+      // 채팅 요청 응답 알림 구독
+      client.subscribe(
+        `/user/${currentUserId}/queue/chat-request-responses`,
+        (message) => {
+          const notification: StompChatRequestResponseNotification = JSON.parse(
+            message.body
+          );
+          get().handleChatRequestResponse(notification);
+        },
+        { Authorization: `Bearer ${accessToken}` }
+      );
+
+      // 개인 메시지 구독
+      if (roomId > 0) {
+        client.subscribe(
+          `/topic/${roomId}`,
+          (message) => {
+            console.log("개인 메시지 수신:", message.body);
+          },
+          { Authorization: `Bearer ${accessToken}` }
+        );
+      }
     };
 
     client.onStompError = (frame) => {
@@ -336,11 +444,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       hasMoreMessages: true,
       isLoadingMessages: false,
       chatRooms: [],
+      receivedRequests: [],
+      sentRequests: [],
+      pendingRequestNotification: null,
     });
   },
 }));
 
-// Helper 함수
 function getCurrentUserId(token: string | null): number | null {
   if (!token) return null;
   try {
