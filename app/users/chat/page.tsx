@@ -18,6 +18,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import { ko } from "date-fns/locale/ko";
 import { jwtDecode } from "jwt-decode";
 import {
+  AlertCircle,
   Bell,
   Check,
   Clock,
@@ -291,6 +292,10 @@ export default function ChatPage() {
   // 메시지 전송
   const handleSendMessage = () => {
     if (!messageInput.trim() || !activeChatRoom) return;
+    if (!activeChatRoom.isOtherGuestActive) {
+      alert("상대방이 채팅방을 나가 메시지를 보낼 수 없습니다.");
+      return;
+    }
 
     sendMessage(activeChatRoom.roomId, messageInput);
     setMessageInput("");
@@ -653,42 +658,59 @@ export default function ChatPage() {
                         <div className="flex-1 border-t border-gray-300"></div>
                       </div>
 
-                      {/* 해당 날짜의 메시지들 */}
-                      {group.messages.map((msg) => (
-                        <div
-                          key={`message-${msg.messageId}`}
-                          className={`flex ${
-                            msg.isMine ? "justify-end" : "justify-start"
-                          }`}
-                        >
+                      {group.messages.map((msg) => {
+                        // 상대방 나감 메시지인 경우
+                        if (msg.isLeft) {
+                          return (
+                            <div
+                              key={`message-${msg.messageId}`}
+                              className="flex justify-center my-4"
+                            >
+                              <div className="bg-gray-100 text-gray-600 text-sm px-4 py-2 rounded-full flex items-center gap-2">
+                                <UserX size={16} className="text-gray-400" />
+                                <span>{msg.content}</span>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // 일반 메시지인 경우
+                        return (
                           <div
-                            className={`max-w-[70%] ${
-                              msg.isMine ? "items-end" : "items-start"
+                            key={`message-${msg.messageId}`}
+                            className={`flex ${
+                              msg.isMine ? "justify-end" : "justify-start"
                             }`}
                           >
                             <div
-                              className={`rounded-2xl px-4 py-2 ${
-                                msg.isMine
-                                  ? "bg-pink-500 text-white"
-                                  : "bg-gray-200 text-gray-900"
+                              className={`max-w-[70%] ${
+                                msg.isMine ? "items-end" : "items-start"
                               }`}
                             >
-                              <p className="whitespace-pre-wrap break-words">
-                                {msg.content}
-                              </p>
+                              <div
+                                className={`rounded-2xl px-4 py-2 ${
+                                  msg.isMine
+                                    ? "bg-pink-500 text-white"
+                                    : "bg-gray-200 text-gray-900"
+                                }`}
+                              >
+                                <p className="whitespace-pre-wrap break-words">
+                                  {msg.content}
+                                </p>
+                              </div>
+                              <span className="text-xs text-gray-500 mt-1 px-2">
+                                {new Date(msg.timestamp).toLocaleTimeString(
+                                  "ko-KR",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </span>
                             </div>
-                            <span className="text-xs text-gray-500 mt-1 px-2">
-                              {new Date(msg.timestamp).toLocaleTimeString(
-                                "ko-KR",
-                                {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }
-                              )}
-                            </span>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ))
                 )}
@@ -697,23 +719,36 @@ export default function ChatPage() {
 
               {/* 메시지 입력 영역 */}
               <div className="p-4 border-t border-gray-200">
-                <div className="flex items-end gap-2">
-                  <textarea
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyDown={handleKeyPress}
-                    placeholder="메시지를 입력하세요..."
-                    className="flex-1 resize-none border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:border-pink-500 max-h-32"
-                    rows={1}
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!messageInput.trim()}
-                    className="p-3 bg-pink-500 text-white rounded-full hover:bg-pink-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Send size={20} />
-                  </button>
-                </div>
+                {!activeChatRoom.isOtherGuestActive ? (
+                  // 상대방이 나간 경우
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
+                    <AlertCircle
+                      size={20}
+                      className="text-amber-600 flex-shrink-0"
+                    />
+                    <p className="text-sm text-amber-700">
+                      상대방이 채팅방을 나가 더 이상 메시지를 보낼 수 없습니다.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-end gap-2">
+                    <textarea
+                      value={messageInput}
+                      onChange={(e) => setMessageInput(e.target.value)}
+                      onKeyDown={handleKeyPress}
+                      placeholder="메시지를 입력하세요..."
+                      className="flex-1 resize-none border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:border-pink-500 max-h-32"
+                      rows={1}
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={!messageInput.trim()}
+                      className="p-3 bg-pink-500 text-white rounded-full hover:bg-pink-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Send size={20} />
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           ) : (

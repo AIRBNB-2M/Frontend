@@ -49,6 +49,7 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   isMine: boolean;
+  isLeft?: boolean;
 }
 
 export interface ChatMessagesResponse {
@@ -70,6 +71,7 @@ export interface StompChatMessageResponse {
   senderName: string;
   content: string;
   timestamp: string;
+  isLeft?: boolean;
 }
 
 // STOMP 채팅 요청 알림

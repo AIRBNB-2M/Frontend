@@ -137,6 +137,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
           ...msg,
           id: msg.id ?? msg.messageId,
           isMine: msg.senderId === currentUserId,
+          isLeft: msg.isLeft ?? false,
         }));
 
       set({
@@ -168,9 +169,24 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             content: receivedMessage.content,
             timestamp: receivedMessage.timestamp,
             isMine: receivedMessage.senderId === currentUserId,
+            isLeft: receivedMessage.isLeft ?? false,
           };
 
           get().addMessage(chatMessage);
+
+          // 상대방이 나간 메시지면 채팅방의 isOtherGuestActive를 false로 업데이트
+          if (chatMessage.isLeft) {
+            set((state) => ({
+              activeChatRoom: state.activeChatRoom
+                ? { ...state.activeChatRoom, isOtherGuestActive: false }
+                : null,
+              chatRooms: state.chatRooms.map((r) =>
+                r.roomId === receivedMessage.roomId
+                  ? { ...r, isOtherGuestActive: false }
+                  : r
+              ),
+            }));
+          }
         },
         { Authorization: `Bearer ${useAuthStore.getState().accessToken}` }
       );
@@ -205,6 +221,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         .map((msg) => ({
           ...msg,
           isMine: msg.senderId === currentUserId,
+          isLeft: msg.isLeft ?? false,
         }));
 
       set((state) => ({
@@ -383,11 +400,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       // ✅ Toast 알림 표시
       const onToast = get().onToast;
       if (onToast) {
-        onToast(
-          `${chatRoom.guestName}님이 대화 요청을 수락하셨습니다`,
-          "success",
-          chatRoom.guestName
-        );
+        onToast(`대화 요청을 수락하셨습니다`, "success", chatRoom.guestName);
       }
 
       console.log(
