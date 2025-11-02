@@ -9,6 +9,7 @@ import {
   ChatRequest,
   StompChatRequestNotification,
   StompChatRequestResponseNotification,
+  RequestChatStatus,
 } from "./chatTypes";
 import { useAuthStore } from "./authStore";
 import { jwtDecode } from "jwt-decode";
@@ -36,12 +37,20 @@ interface ChatState {
   sentRequests: ChatRequest[];
   pendingRequestNotification: StompChatRequestNotification | null;
 
+  // Toast 콜백
+  onToast?: (
+    message: string,
+    type: "success" | "error" | "info",
+    userName?: string
+  ) => void;
+
   // Actions
   setActiveChatRoom: (room: ChatRoom) => void;
   addChatRoom: (room: ChatRoom) => void;
   addMessage: (message: ChatMessage) => void;
   sendMessage: (roomId: number, content: string) => void;
-  connectWebSocket: (roomId: number) => void;
+  connectWebSocket: () => void;
+  subscribeChatRequest: () => void;
   disconnectWebSocket: () => void;
   loadMoreMessages: () => Promise<void>;
   updateRoomName: (room: ChatRoom, customName: string) => Promise<void>;
@@ -60,6 +69,15 @@ interface ChatState {
   acceptRequest: (requestId: string) => Promise<ChatRoom>;
   rejectRequest: (requestId: string) => Promise<void>;
   clearRequestNotification: () => void;
+
+  // Toast 콜백 설정
+  setToastCallback: (
+    callback: (
+      message: string,
+      type: "success" | "error" | "info",
+      userName?: string
+    ) => void
+  ) => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -73,8 +91,26 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   receivedRequests: [],
   sentRequests: [],
   pendingRequestNotification: null,
+  onToast: undefined,
+
+  setToastCallback: (callback) => {
+    set({ onToast: callback });
+  },
 
   setActiveChatRoom: async (room) => {
+    const client = get().client;
+    const previousRoom = get().activeChatRoom;
+
+    // ✅ 이전 채팅방 구독 해제
+    if (previousRoom && client && client.connected) {
+      try {
+        client.unsubscribe(`/topic/${previousRoom.roomId}`);
+        console.log(`이전 채팅방 구독 해제: ${previousRoom.roomId}`);
+      } catch (error) {
+        console.error("구독 해제 실패:", error);
+      }
+    }
+
     set({
       activeChatRoom: room,
       messages: [],
@@ -113,7 +149,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       set({ isLoadingMessages: false });
     }
 
-    const client = get().client;
+    // ✅ 새 채팅방 구독
     if (client && client.connected) {
       client.subscribe(
         `/topic/${room.roomId}`,
@@ -138,6 +174,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         },
         { Authorization: `Bearer ${useAuthStore.getState().accessToken}` }
       );
+
+      console.log(`채팅방 구독 완료: ${room.roomId}`);
+    } else {
+      console.error("WebSocket이 연결되지 않아 채팅방을 구독할 수 없습니다.");
     }
   },
 
@@ -309,21 +349,61 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   },
 
   handleChatRequestNotification: (notification) => {
+    // 팝업 알림 표시
     set({ pendingRequestNotification: notification });
+
+    // receivedRequests 배열에도 추가
+    const newRequest: ChatRequest = {
+      requestId: notification.requestId,
+      senderId: notification.senderId,
+      senderName: notification.senderName,
+      senderProfileImage: notification.senderProfileImage,
+      receiverId: getCurrentUserId(useAuthStore.getState().accessToken) || 0,
+      receiverName: "", // 서버에서 제공하지 않음
+      receiverProfileImage: undefined,
+      status: "PENDING" as RequestChatStatus,
+      expiresAt: notification.expiresAt,
+    };
+
+    set((state) => ({
+      receivedRequests: [...state.receivedRequests, newRequest],
+    }));
   },
 
   handleChatRequestResponse: (notification) => {
-    const { requestId, accepted, roomId, message } = notification;
+    const { requestId, accepted, roomId, message, chatRoom } = notification;
 
     get().removeRequest(requestId);
+    console.log("채팅 요청 응답 수신:", notification);
 
-    if (accepted && roomId) {
-      // 채팅방이 생성되었으므로 채팅방 목록을 다시 불러와야 함
+    if (accepted && chatRoom) {
+      // ✅ 서버에서 받은 채팅방 정보를 즉시 목록에 추가
+      get().addChatRoom(chatRoom);
+
+      // ✅ Toast 알림 표시
+      const onToast = get().onToast;
+      if (onToast) {
+        onToast(
+          `${chatRoom.guestName}님이 대화 요청을 수락하셨습니다`,
+          "success",
+          chatRoom.guestName
+        );
+      }
+
+      console.log(
+        "채팅 요청이 수락되었습니다. 채팅방이 추가되었습니다:",
+        chatRoom
+      );
+    } else if (!accepted) {
+      // ✅ 거절된 경우
+      const onToast = get().onToast;
+      if (onToast) {
+        onToast(message || "채팅 요청이 거절되었습니다", "info");
+      }
+    } else if (accepted && roomId) {
+      // chatRoom 정보가 없는 경우 (이전 버전 호환성)
       console.log("채팅 요청이 수락되었습니다. 채팅방 ID:", roomId);
     }
-
-    // 알림 표시
-    alert(message);
   },
 
   clearRequestNotification: () => {
@@ -352,7 +432,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }
   },
 
-  connectWebSocket: (roomId) => {
+  connectWebSocket: () => {
     const { accessToken } = useAuthStore.getState();
 
     if (!accessToken) {
@@ -362,7 +442,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
     const client = new Client({
       webSocketFactory: () =>
-        new SockJS(`${process.env.NEXT_PUBLIC_API_BASE_URL}/connect`),
+        new SockJS(
+          `${
+            process.env.NEXT_PUBLIC_API_BASE_URL
+          }/connect?token=${encodeURIComponent(accessToken)}`
+        ),
       connectHeaders: {
         Authorization: `Bearer ${accessToken}`,
       },
@@ -378,42 +462,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       console.log("WebSocket 연결 성공");
       set({ isConnected: true });
 
-      const currentUserId = getCurrentUserId(accessToken);
-
-      // 개인 채팅 요청 알림 구독
-      client.subscribe(
-        `/user/${currentUserId}/queue/chat-requests`,
-        (message) => {
-          const notification: StompChatRequestNotification = JSON.parse(
-            message.body
-          );
-          get().handleChatRequestNotification(notification);
-        },
-        { Authorization: `Bearer ${accessToken}` }
-      );
-
-      // 채팅 요청 응답 알림 구독
-      client.subscribe(
-        `/user/${currentUserId}/queue/chat-request-responses`,
-        (message) => {
-          const notification: StompChatRequestResponseNotification = JSON.parse(
-            message.body
-          );
-          get().handleChatRequestResponse(notification);
-        },
-        { Authorization: `Bearer ${accessToken}` }
-      );
-
-      // 개인 메시지 구독
-      if (roomId > 0) {
-        client.subscribe(
-          `/topic/${roomId}`,
-          (message) => {
-            console.log("개인 메시지 수신:", message.body);
-          },
-          { Authorization: `Bearer ${accessToken}` }
-        );
-      }
+      // 연결 후 채팅 요청 구독
+      get().subscribeChatRequest();
     };
 
     client.onStompError = (frame) => {
@@ -429,6 +479,40 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
     client.activate();
     set({ client });
+  },
+
+  subscribeChatRequest: () => {
+    const client = get().client;
+    const { accessToken } = useAuthStore.getState();
+
+    if (!client || !client.connected) {
+      console.error("WebSocket이 연결되지 않아 구독할 수 없습니다.");
+      return;
+    }
+
+    // 개인 채팅 요청 알림 구독
+    client.subscribe(
+      `/user/queue/chat-requests`,
+      (message) => {
+        const notification: StompChatRequestNotification = JSON.parse(
+          message.body
+        );
+        get().handleChatRequestNotification(notification);
+      },
+      { Authorization: `Bearer ${accessToken}` }
+    );
+
+    // 채팅 요청 응답 알림 구독
+    client.subscribe(
+      `/user/queue/chat-request-responses`,
+      (message) => {
+        const notification: StompChatRequestResponseNotification = JSON.parse(
+          message.body
+        );
+        get().handleChatRequestResponse(notification);
+      },
+      { Authorization: `Bearer ${accessToken}` }
+    );
   },
 
   disconnectWebSocket: () => {

@@ -81,16 +81,6 @@ export async function fetchChatMessages(
 }
 
 /**
- * 채팅방 생성 또는 기존 채팅방 조회
- */
-export async function createOrGetChatRoom(
-  otherGuestId: number
-): Promise<ChatRoom> {
-  const response = await http.post("/api/chat/rooms", { otherGuestId });
-  return response.data;
-}
-
-/**
  * 채팅방 이름 수정
  */
 export async function updateChatRoomName(

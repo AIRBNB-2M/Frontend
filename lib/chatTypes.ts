@@ -87,6 +87,7 @@ export interface StompChatRequestResponseNotification {
   accepted: boolean;
   roomId?: number;
   message: string;
+  chatRoom?: ChatRoom;
 }
 
 // 채팅방 이름 수정 요청

@@ -1,7 +1,9 @@
 "use client";
 
 import Header from "@/components/Header";
+import Toast from "@/components/Toast";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { useToast } from "@/hooks/useToast";
 import { useAuthStore } from "@/lib/authStore";
 import { useChatStore } from "@/lib/chatStore";
 import { ChatMessage, ChatRoom, ChatUser } from "@/lib/chatTypes";
@@ -72,6 +74,7 @@ function groupMessagesByDate(messages: ChatMessage[]): GroupedMessage[] {
 
 export default function ChatPage() {
   const { isAuthChecked, isAuthenticated } = useRequireAuth();
+  const { toast, showSuccess, showError, showInfo, hideToast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ChatUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -123,7 +126,21 @@ export default function ChatPage() {
     setActiveChatRoom,
     updateRoomName,
     leaveChatRoom,
+    setToastCallback,
   } = useChatStore();
+
+  // ✅ chatStore에 toast 콜백 등록
+  useEffect(() => {
+    setToastCallback((message, type, userName) => {
+      if (type === "success") {
+        showSuccess(userName ? `${userName}님이 ${message}` : message);
+      } else if (type === "error") {
+        showError(message);
+      } else {
+        showInfo(message);
+      }
+    });
+  }, [setToastCallback, showSuccess, showError, showInfo]);
 
   const [messageInput, setMessageInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -134,7 +151,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (!isAuthChecked || !isAuthenticated) return;
 
-    connectWebSocket(-1);
+    connectWebSocket();
 
     const loadInitialData = async () => {
       try {
@@ -705,7 +722,7 @@ export default function ChatPage() {
                 <i className="ri-chat-3-line text-6xl mb-4 text-gray-300"></i>
                 <p className="text-lg">대화를 선택하세요</p>
                 <p className="text-sm mt-2">
-                  왼쪽에서 대화를 선택하거나 새 채팅을 시작하세요
+                  대화를 선택하거나 새 채팅을 시작하세요
                 </p>
               </div>
             </div>
@@ -1053,6 +1070,13 @@ export default function ChatPage() {
           </div>
         </div>
       )}
+
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
     </>
   );
 }
