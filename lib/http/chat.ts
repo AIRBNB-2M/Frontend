@@ -104,3 +104,10 @@ export async function leaveChatRoom(
 ): Promise<void> {
   await http.post(`/api/chat/${roomId}`, { isActive });
 }
+
+/**
+ * 채팅방의 모든 메시지 읽음 처리
+ */
+export async function markChatRoomAsRead(roomId: number): Promise<void> {
+  await http.put(`/api/chat/${roomId}/read`);
+}

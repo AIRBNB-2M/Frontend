@@ -15,16 +15,18 @@ import { useAuthStore } from "./authStore";
 import { jwtDecode } from "jwt-decode";
 import {
   fetchChatMessages,
-  leaveChatRoom,
+  leaveChatRoom as leaveChatRoomAPI,
   updateChatRoomName,
   acceptChatRequest,
   rejectChatRequest,
+  markChatRoomAsRead,
 } from "./http/chat";
 
 const pageSize = 50;
 
 interface ChatState {
   client: Client | null;
+  activeSubscriptions: Map<number, any>; // roomId -> subscription 객체
   chatRooms: ChatRoom[];
   activeChatRoom: ChatRoom | null;
   messages: ChatMessage[];
@@ -56,6 +58,11 @@ interface ChatState {
   updateRoomName: (room: ChatRoom, customName: string) => Promise<void>;
   leaveChatRoom: (roomId: number, isActive: boolean) => Promise<void>;
 
+  // 구독 관리
+  subscribeToAllRooms: () => void;
+  subscribeToRoom: (room: ChatRoom) => void;
+  unsubscribeFromAllRooms: () => void;
+
   // 채팅 요청 관련 액션
   addReceivedRequest: (request: ChatRequest) => void;
   addSentRequest: (request: ChatRequest) => void;
@@ -82,6 +89,7 @@ interface ChatState {
 
 export const useChatStore = create<ChatState>()((set, get) => ({
   client: null,
+  activeSubscriptions: new Map(),
   chatRooms: [],
   activeChatRoom: null,
   messages: [],
@@ -97,17 +105,195 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     set({ onToast: callback });
   },
 
-  setActiveChatRoom: async (room) => {
-    const client = get().client;
-    const previousRoom = get().activeChatRoom;
+  // 모든 채팅방 구독
+  subscribeToAllRooms: () => {
+    const { client, chatRooms } = get();
+    const { accessToken } = useAuthStore.getState();
 
-    // ✅ 이전 채팅방 구독 해제
-    if (previousRoom && client && client.connected) {
+    if (!client || !client.connected) {
+      console.error("WebSocket이 연결되지 않았습니다.");
+      return;
+    }
+
+    const currentUserId = getCurrentUserId(accessToken);
+    const subscriptions = new Map();
+
+    chatRooms.forEach((room) => {
+      const subscription = client.subscribe(
+        `/topic/${room.roomId}`,
+        (message) => {
+          const receivedMessage: StompChatMessageResponse = JSON.parse(
+            message.body
+          );
+
+          const chatMessage: ChatMessage = {
+            messageId: receivedMessage.messageId,
+            roomId: receivedMessage.roomId,
+            senderId: receivedMessage.senderId,
+            senderName: receivedMessage.senderName,
+            content: receivedMessage.content,
+            timestamp: receivedMessage.timestamp,
+            isMine: receivedMessage.senderId === currentUserId,
+            isLeft: receivedMessage.isLeft ?? false,
+          };
+
+          // 현재 활성화된 채팅방인 경우 메시지 추가
+          const activeChatRoom = get().activeChatRoom;
+          if (activeChatRoom && activeChatRoom.roomId === chatMessage.roomId) {
+            get().addMessage(chatMessage);
+          }
+
+          // 상대방이 나간 경우 처리
+          if (chatMessage.isLeft) {
+            set((state) => ({
+              activeChatRoom:
+                state.activeChatRoom?.roomId === receivedMessage.roomId
+                  ? { ...state.activeChatRoom, isOtherGuestActive: false }
+                  : state.activeChatRoom,
+              chatRooms: state.chatRooms.map((r) =>
+                r.roomId === receivedMessage.roomId
+                  ? { ...r, isOtherGuestActive: false }
+                  : r
+              ),
+            }));
+          }
+
+          // 모든 채팅방의 목록 정보 업데이트
+          set((state) => ({
+            chatRooms: state.chatRooms.map((r) => {
+              if (r.roomId === chatMessage.roomId) {
+                return {
+                  ...r,
+                  lastMessage: chatMessage.content,
+                  lastMessageTime: chatMessage.timestamp,
+                  // 내가 보낸 메시지거나 현재 보고 있는 채팅방이면 미읽음 증가 안 함
+                  unreadCount:
+                    chatMessage.isMine ||
+                    activeChatRoom?.roomId === chatMessage.roomId
+                      ? r.unreadCount
+                      : r.unreadCount + 1,
+                };
+              }
+              return r;
+            }),
+          }));
+        },
+        { Authorization: `Bearer ${accessToken}` }
+      );
+
+      subscriptions.set(room.roomId, subscription);
+      console.log(`채팅방 ${room.roomId} 구독 완료`);
+    });
+
+    set({ activeSubscriptions: subscriptions });
+  },
+
+  // 특정 채팅방 구독 추가 (새 채팅방 생성 시)
+  subscribeToRoom: (room: ChatRoom) => {
+    const { client, activeSubscriptions } = get();
+    const { accessToken } = useAuthStore.getState();
+
+    if (!client || !client.connected) return;
+
+    // 이미 구독 중이면 스킵
+    if (activeSubscriptions.has(room.roomId)) {
+      console.log(`채팅방 ${room.roomId}는 이미 구독 중`);
+      return;
+    }
+
+    const currentUserId = getCurrentUserId(accessToken);
+
+    const subscription = client.subscribe(
+      `/topic/${room.roomId}`,
+      (message) => {
+        const receivedMessage: StompChatMessageResponse = JSON.parse(
+          message.body
+        );
+
+        const chatMessage: ChatMessage = {
+          messageId: receivedMessage.messageId,
+          roomId: receivedMessage.roomId,
+          senderId: receivedMessage.senderId,
+          senderName: receivedMessage.senderName,
+          content: receivedMessage.content,
+          timestamp: receivedMessage.timestamp,
+          isMine: receivedMessage.senderId === currentUserId,
+          isLeft: receivedMessage.isLeft ?? false,
+        };
+
+        const activeChatRoom = get().activeChatRoom;
+        if (activeChatRoom && activeChatRoom.roomId === chatMessage.roomId) {
+          get().addMessage(chatMessage);
+        }
+
+        if (chatMessage.isLeft) {
+          set((state) => ({
+            activeChatRoom:
+              state.activeChatRoom?.roomId === receivedMessage.roomId
+                ? { ...state.activeChatRoom, isOtherGuestActive: false }
+                : state.activeChatRoom,
+            chatRooms: state.chatRooms.map((r) =>
+              r.roomId === receivedMessage.roomId
+                ? { ...r, isOtherGuestActive: false }
+                : r
+            ),
+          }));
+        }
+
+        set((state) => ({
+          chatRooms: state.chatRooms.map((r) => {
+            if (r.roomId === chatMessage.roomId) {
+              return {
+                ...r,
+                lastMessage: chatMessage.content,
+                lastMessageTime: chatMessage.timestamp,
+                unreadCount:
+                  chatMessage.isMine ||
+                  activeChatRoom?.roomId === chatMessage.roomId
+                    ? r.unreadCount
+                    : r.unreadCount + 1,
+              };
+            }
+            return r;
+          }),
+        }));
+      },
+      { Authorization: `Bearer ${accessToken}` }
+    );
+
+    const newSubscriptions = new Map(activeSubscriptions);
+    newSubscriptions.set(room.roomId, subscription);
+    set({ activeSubscriptions: newSubscriptions });
+
+    console.log(`새 채팅방 ${room.roomId} 구독 완료`);
+  },
+
+  // 모든 구독 해제
+  unsubscribeFromAllRooms: () => {
+    const { activeSubscriptions } = get();
+
+    activeSubscriptions.forEach((subscription, roomId) => {
       try {
-        client.unsubscribe(`/topic/${previousRoom.roomId}`);
-        console.log(`이전 채팅방 구독 해제: ${previousRoom.roomId}`);
+        subscription.unsubscribe();
+        console.log(`채팅방 ${roomId} 구독 해제`);
       } catch (error) {
-        console.error("구독 해제 실패:", error);
+        console.error(`채팅방 ${roomId} 구독 해제 실패:`, error);
+      }
+    });
+
+    set({ activeSubscriptions: new Map() });
+  },
+
+  setActiveChatRoom: async (room) => {
+    // 구독/해제 로직 불필요 (모든 방이 이미 구독됨)
+
+    const previousRoom = get().activeChatRoom;
+    if (previousRoom) {
+      try {
+        // 이전 채팅방 읽음 처리
+        await markChatRoomAsRead(previousRoom.roomId);
+      } catch (error) {
+        console.error("이전 채팅방 읽음 처리 실패:", error);
       }
     }
 
@@ -148,52 +334,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     } catch (error) {
       console.error("메시지 로드 실패:", error);
       set({ isLoadingMessages: false });
-    }
-
-    // ✅ 새 채팅방 구독
-    if (client && client.connected) {
-      client.subscribe(
-        `/topic/${room.roomId}`,
-        (message) => {
-          const receivedMessage: StompChatMessageResponse = JSON.parse(
-            message.body
-          );
-          const { accessToken } = useAuthStore.getState();
-          const currentUserId = getCurrentUserId(accessToken);
-
-          const chatMessage: ChatMessage = {
-            messageId: receivedMessage.messageId,
-            roomId: receivedMessage.roomId,
-            senderId: receivedMessage.senderId,
-            senderName: receivedMessage.senderName,
-            content: receivedMessage.content,
-            timestamp: receivedMessage.timestamp,
-            isMine: receivedMessage.senderId === currentUserId,
-            isLeft: receivedMessage.isLeft ?? false,
-          };
-
-          get().addMessage(chatMessage);
-
-          // 상대방이 나간 메시지면 채팅방의 isOtherGuestActive를 false로 업데이트
-          if (chatMessage.isLeft) {
-            set((state) => ({
-              activeChatRoom: state.activeChatRoom
-                ? { ...state.activeChatRoom, isOtherGuestActive: false }
-                : null,
-              chatRooms: state.chatRooms.map((r) =>
-                r.roomId === receivedMessage.roomId
-                  ? { ...r, isOtherGuestActive: false }
-                  : r
-              ),
-            }));
-          }
-        },
-        { Authorization: `Bearer ${useAuthStore.getState().accessToken}` }
-      );
-
-      console.log(`채팅방 구독 완료: ${room.roomId}`);
-    } else {
-      console.error("WebSocket이 연결되지 않아 채팅방을 구독할 수 없습니다.");
     }
   },
 
@@ -239,7 +379,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     set((state) => {
       const exists = state.chatRooms.some((r) => r.roomId === room.roomId);
       if (exists) return state;
-      return { chatRooms: [...state.chatRooms, room] };
+
+      const newChatRooms = [...state.chatRooms, room];
+
+      // 연결되어 있으면 즉시 구독
+      if (state.isConnected) {
+        // 다음 틱에서 구독 (상태 업데이트 후)
+        setTimeout(() => get().subscribeToRoom(room), 0);
+      }
+
+      return { chatRooms: newChatRooms };
     });
   },
 
@@ -252,20 +401,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
       return {
         messages: [...state.messages, message],
-        chatRooms: state.chatRooms.map((room) =>
-          room.roomId === message.roomId
-            ? {
-                ...room,
-                lastMessage: message.content,
-                lastMessageTime: message.timestamp,
-                unreadCount:
-                  message.isMine ||
-                  state.activeChatRoom?.roomId === message.roomId
-                    ? room.unreadCount
-                    : room.unreadCount + 1,
-              }
-            : room
-        ),
       };
     });
   },
@@ -312,7 +447,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
           state.activeChatRoom?.roomId === updatedRoom.roomId
             ? {
                 ...state.activeChatRoom,
-                roomId: state.activeChatRoom.roomId,
                 customRoomName: updatedRoom.customRoomName,
               }
             : state.activeChatRoom,
@@ -325,19 +459,30 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
   leaveChatRoom: async (roomId, isActive) => {
     try {
-      await leaveChatRoom(roomId, isActive);
+      await leaveChatRoomAPI(roomId, isActive);
+
+      // 구독 해제
+      const { activeSubscriptions } = get();
+      const subscription = activeSubscriptions.get(roomId);
+      if (subscription) {
+        try {
+          subscription.unsubscribe();
+          console.log(`채팅방 ${roomId} 구독 해제`);
+        } catch (error) {
+          console.error("구독 해제 실패:", error);
+        }
+      }
+
+      const newSubscriptions = new Map(activeSubscriptions);
+      newSubscriptions.delete(roomId);
 
       set((state) => ({
         chatRooms: state.chatRooms.filter((room) => room.roomId !== roomId),
         activeChatRoom:
           state.activeChatRoom?.roomId === roomId ? null : state.activeChatRoom,
         messages: state.activeChatRoom?.roomId === roomId ? [] : state.messages,
+        activeSubscriptions: newSubscriptions,
       }));
-
-      const client = get().client;
-      if (client && client.connected) {
-        client.unsubscribe(`/topic/${roomId}`);
-      }
     } catch (error) {
       console.error("채팅방 나가기 실패:", error);
       throw error;
@@ -394,10 +539,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     console.log("채팅 요청 응답 수신:", notification);
 
     if (accepted && chatRoom) {
-      // ✅ 서버에서 받은 채팅방 정보를 즉시 목록에 추가
+      // 서버에서 받은 채팅방 정보를 즉시 목록에 추가
       get().addChatRoom(chatRoom);
 
-      // ✅ Toast 알림 표시
+      // Toast 알림 표시
       const onToast = get().onToast;
       if (onToast) {
         onToast(`대화 요청을 수락하셨습니다`, "success", chatRoom.guestName);
@@ -408,7 +553,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         chatRoom
       );
     } else if (!accepted) {
-      // ✅ 거절된 경우
+      // 거절된 경우
       const onToast = get().onToast;
       if (onToast) {
         onToast(message || "채팅 요청이 거절되었습니다", "info");
@@ -466,9 +611,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       debug: (str) => {
         console.log("STOMP Debug:", str);
       },
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
-      reconnectDelay: 0,
+      heartbeatIncoming: 0,
+      heartbeatOutgoing: 0,
+      reconnectDelay: 5000,
     });
 
     client.onConnect = () => {
@@ -477,6 +622,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
       // 연결 후 채팅 요청 구독
       get().subscribeChatRequest();
+
+      // 모든 채팅방 구독
+      get().subscribeToAllRooms();
     };
 
     client.onStompError = (frame) => {
@@ -528,11 +676,22 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     );
   },
 
-  disconnectWebSocket: () => {
+  disconnectWebSocket: async () => {
+    const currentRoom = get().activeChatRoom;
+    if (currentRoom) {
+      try {
+        await markChatRoomAsRead(currentRoom.roomId);
+      } catch (error) {
+        console.error("이전 채팅방 읽음 처리 실패:", error);
+      }
+    }
+
+    get().unsubscribeFromAllRooms();
     const client = get().client;
     if (client) {
       client.deactivate();
     }
+
     set({
       client: null,
       isConnected: false,
@@ -544,6 +703,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       receivedRequests: [],
       sentRequests: [],
       pendingRequestNotification: null,
+      activeSubscriptions: new Map(),
     });
   },
 }));
