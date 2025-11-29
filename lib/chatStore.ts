@@ -148,11 +148,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             set((state) => ({
               activeChatRoom:
                 state.activeChatRoom?.roomId === receivedMessage.roomId
-                  ? { ...state.activeChatRoom, isOtherGuestActive: false }
+                  ? { ...state.activeChatRoom, isOtherMemberActive: false }
                   : state.activeChatRoom,
               chatRooms: state.chatRooms.map((r) =>
                 r.roomId === receivedMessage.roomId
-                  ? { ...r, isOtherGuestActive: false }
+                  ? { ...r, isOtherMemberActive: false }
                   : r
               ),
             }));
@@ -230,11 +230,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
           set((state) => ({
             activeChatRoom:
               state.activeChatRoom?.roomId === receivedMessage.roomId
-                ? { ...state.activeChatRoom, isOtherGuestActive: false }
+                ? { ...state.activeChatRoom, isOtherMemberActive: false }
                 : state.activeChatRoom,
             chatRooms: state.chatRooms.map((r) =>
               r.roomId === receivedMessage.roomId
-                ? { ...r, isOtherGuestActive: false }
+                ? { ...r, isOtherMemberActive: false }
                 : r
             ),
           }));
@@ -433,7 +433,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     try {
       const updatedRoom = await updateChatRoomName(
         room.roomId,
-        room.guestId,
+        room.memberId,
         customName
       );
 
@@ -545,7 +545,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       // Toast 알림 표시
       const onToast = get().onToast;
       if (onToast) {
-        onToast(`대화 요청을 수락하셨습니다`, "success", chatRoom.guestName);
+        onToast(`대화 요청을 수락하셨습니다`, "success", chatRoom.memberName);
       }
 
       console.log(

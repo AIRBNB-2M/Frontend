@@ -31,10 +31,10 @@ export interface ChatRequest {
 export interface ChatRoom {
   roomId: number;
   customRoomName: string;
-  guestId: number;
-  guestName: string;
-  guestProfileImage?: string;
-  isOtherGuestActive: boolean;
+  memberId: number;
+  memberName: string;
+  memberProfileImage?: string;
+  isOtherMemberActive: boolean;
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
@@ -95,5 +95,5 @@ export interface StompChatRequestResponseNotification {
 // 채팅방 이름 수정 요청
 export interface UpdateChatRoomNameRequest {
   customName: string;
-  otherGuestId: number;
+  otherMemberId: number;
 }

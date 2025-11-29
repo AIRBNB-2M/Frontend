@@ -292,7 +292,7 @@ export default function ChatPage() {
   // 메시지 전송
   const handleSendMessage = () => {
     if (!messageInput.trim() || !activeChatRoom) return;
-    if (!activeChatRoom.isOtherGuestActive) {
+    if (!activeChatRoom.isOtherMemberActive) {
       alert("상대방이 채팅방을 나가 메시지를 보낼 수 없습니다.");
       return;
     }
@@ -457,12 +457,12 @@ export default function ChatPage() {
                   >
                     <img
                       src={
-                        room.guestProfileImage ||
+                        room.memberProfileImage ||
                         `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                          room.guestName
+                          room.memberName
                         )}&background=random`
                       }
-                      alt={room.guestName}
+                      alt={room.memberName}
                       className="w-12 h-12 rounded-full object-cover flex-shrink-0"
                     />
                     <div className="flex-1 min-w-0">
@@ -517,7 +517,7 @@ export default function ChatPage() {
                               </div>
                               {room.customRoomName && (
                                 <div className="text-xs text-gray-500 truncate">
-                                  {room.guestName}
+                                  {room.memberName}
                                 </div>
                               )}
                             </div>
@@ -602,17 +602,17 @@ export default function ChatPage() {
               <div className="p-4 border-b border-gray-200 flex items-center gap-3">
                 <img
                   src={
-                    activeChatRoom.guestProfileImage ||
+                    activeChatRoom.memberProfileImage ||
                     `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                      activeChatRoom.guestName
+                      activeChatRoom.memberName
                     )}&background=random`
                   }
-                  alt={activeChatRoom.guestName}
+                  alt={activeChatRoom.memberName}
                   className="w-10 h-10 rounded-full object-cover"
                 />
                 <div>
                   <h2 className="font-semibold text-gray-900">
-                    {activeChatRoom.guestName}
+                    {activeChatRoom.memberName}
                   </h2>
                 </div>
               </div>
@@ -643,7 +643,7 @@ export default function ChatPage() {
                 {messages.length === 0 && !isLoadingMessages ? (
                   <div className="flex items-center justify-center h-full">
                     <p className="text-gray-500">
-                      {activeChatRoom.guestName}님과 대화를 시작하세요
+                      {activeChatRoom.memberName}님과 대화를 시작하세요
                     </p>
                   </div>
                 ) : (
@@ -719,7 +719,7 @@ export default function ChatPage() {
 
               {/* 메시지 입력 영역 */}
               <div className="p-4 border-t border-gray-200">
-                {!activeChatRoom.isOtherGuestActive ? (
+                {!activeChatRoom.isOtherMemberActive ? (
                   // 상대방이 나간 경우
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
                     <AlertCircle

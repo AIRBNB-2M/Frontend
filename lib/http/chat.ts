@@ -11,10 +11,10 @@ import {
  * 사용자 이름으로 검색
  */
 export async function searchUsers(name: string): Promise<ChatUser[]> {
-  const response = await http.get(`/api/guests/search`, {
+  const response = await http.get(`/api/members/search`, {
     params: { name },
   });
-  return response.data.guests;
+  return response.data.members;
 }
 
 /**
@@ -85,12 +85,12 @@ export async function fetchChatMessages(
  */
 export async function updateChatRoomName(
   roomId: number,
-  otherGuestId: number,
+  otherMemberId: number,
   customName: string
 ): Promise<ChatRoom> {
   const response = await http.patch(`/api/chat/${roomId}/name`, {
     customName,
-    otherGuestId,
+    otherMemberId,
   } as UpdateChatRoomNameRequest);
   return response.data;
 }

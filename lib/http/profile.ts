@@ -27,7 +27,7 @@ export async function updateMyProfile(
     formData.append("profileImage", updateData.profileImageFile);
   }
 
-  const response = await http.put("/api/guests/me", formData, {
+  const response = await http.put("/api/members/me", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
 
@@ -35,7 +35,7 @@ export async function updateMyProfile(
 }
 
 export async function fetchMyProfile(): Promise<DefaultProfileResDto> {
-  const response = await http.get("/api/guests/me");
+  const response = await http.get("/api/members/me");
   return response.data;
 }
 

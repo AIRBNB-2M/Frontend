@@ -21,10 +21,10 @@ export interface DetailAccommodationResDto {
   };
   amenities: string[];
   reviews: {
-    guestId: number;
-    guestName: string;
+    memberId: number;
+    memberName: string;
     profileUrl: string;
-    guestCreatedDate: string;
+    memberCreatedDate: string;
     reviewCreatedDate: string;
     rating: number;
     content: string;

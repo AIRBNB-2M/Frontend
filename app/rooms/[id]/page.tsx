@@ -802,11 +802,11 @@ function AccommodationDetailContent() {
                         <div className="flex items-center gap-3">
                           <img
                             src={review.profileUrl || "/default-avatar.png"}
-                            alt={review.guestName}
+                            alt={review.memberName}
                             className="w-10 h-10 rounded-full object-cover"
                           />
                           <div>
-                            <p className="font-medium">{review.guestName}</p>
+                            <p className="font-medium">{review.memberName}</p>
                             <p className="text-sm text-gray-500">
                               {formatDate(review.reviewCreatedDate)}
                             </p>

@@ -56,7 +56,7 @@ export default function PastTripsTab() {
       setError("");
 
       const response = await http.get<PageResponseDto>(
-        "/api/guests/me/trips/past",
+        "/api/members/me/trips/past",
         {
           params: {
             page: pageNumber,

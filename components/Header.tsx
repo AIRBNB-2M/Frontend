@@ -65,7 +65,7 @@ export default function Header() {
           className="flex items-center gap-2 text-2xl font-bold text-pink-500"
         >
           <i className="ri-home-heart-fill w-8 h-8"></i>
-          Airbnb
+          AirL&J
         </Link>
 
         {/* 오른쪽 영역 */}
