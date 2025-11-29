@@ -22,10 +22,14 @@ import {
   fetchWishlists,
   removeAccommodationFromWishlist,
 } from "@/lib/http/wishlist";
+import { createReservation } from "@/lib/http/reservation";
+import { fetchMyProfile } from "@/lib/http/profile";
+import { useAuthStore } from "@/lib/authStore";
 
 function AccommodationDetailContent() {
   const params = useParams();
   const router = useRouter();
+  const { accessToken } = useAuthStore();
   const [accommodation, setAccommodation] =
     useState<DetailAccommodationResDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,6 +46,7 @@ function AccommodationDetailContent() {
   const [infants, setInfants] = useState(0);
   const [dailyPrice, setDailyPrice] = useState<number | null>(null);
   const [priceLoading, setPriceLoading] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
 
   // 위시리스트 상태를 로컬에서 관리
   const [isInWishlist, setIsInWishlist] = useState(false);
@@ -119,6 +124,85 @@ function AccommodationDetailContent() {
     } else {
       setCheckInDate(null);
       setCheckOutDate(null);
+    }
+  };
+
+  // 예약하기 핸들러
+  const handleReservation = async () => {
+    // 1. 로그인 확인
+    if (!accessToken) {
+      showError("로그인이 필요합니다");
+      setTimeout(() => router.push("/login"), 1500);
+      return;
+    }
+
+    // 2. 날짜 선택 확인
+    if (!checkInDate || !checkOutDate) {
+      showError("날짜를 선택해주세요");
+      return;
+    }
+
+    // 3. 날짜 유효성 확인
+    if (checkInDate >= checkOutDate) {
+      showError("올바른 날짜를 선택해주세요");
+      return;
+    }
+
+    // 4. 게스트 수 확인
+    if (accommodation && countedGuests > accommodation.maxPeople) {
+      showError(`최대 ${accommodation.maxPeople}명까지 예약 가능합니다`);
+      return;
+    }
+
+    setIsBooking(true);
+
+    try {
+      // 5. 프로필 정보 조회하여 이메일 인증 확인
+      const profile = await fetchMyProfile();
+
+      if (!profile.isEmailVerified) {
+        showError("이메일 인증이 필요합니다");
+        setTimeout(() => router.push("/users/profile"), 1500);
+        setIsBooking(false);
+        return;
+      }
+
+      // 6. 예약 API 호출
+      const reservationData = {
+        startDate: checkInDate.toISOString(),
+        endDate: checkOutDate.toISOString(),
+        adults,
+        children,
+        infants,
+      };
+
+      const response = await createReservation(
+        Number(accommodationId),
+        reservationData
+      );
+
+      const bookingData = {
+        ...response,
+        dailyPrice: dailyPrice || 0,
+        nights,
+        totalPrice,
+      };
+
+      // 7. 예약 페이지로 이동 (예약 정보를 쿼리 파라미터로 전달)
+      const encodedData = btoa(encodeURIComponent(JSON.stringify(bookingData)));
+      router.push(`/rooms/book?data=${encodedData}`);
+    } catch (error: any) {
+      console.error("예약 실패:", error);
+
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        showError("로그인이 필요합니다");
+        setTimeout(() => router.push("/login"), 1500);
+      } else if (error?.response?.status === 409) {
+        showError("이미 예약된 날짜입니다");
+      } else {
+        showError(error?.response?.data?.message || "예약에 실패했습니다");
+      }
+      setIsBooking(false);
     }
   };
 
@@ -323,7 +407,6 @@ function AccommodationDetailContent() {
                         height: "auto",
                       }}
                       onLoad={(e) => {
-                        // 이미지 로드 완료 후 크기 조정
                         const img = e.target as HTMLImageElement;
                         const container = img.parentElement;
                         if (container) {
@@ -335,11 +418,9 @@ function AccommodationDetailContent() {
                             containerRect.width / containerRect.height;
 
                           if (imgAspectRatio > containerAspectRatio) {
-                            // 가로가 더 긴 이미지
                             img.style.width = "100%";
                             img.style.height = "auto";
                           } else {
-                            // 세로가 더 긴 이미지
                             img.style.width = "auto";
                             img.style.height = "100%";
                           }
@@ -702,12 +783,11 @@ function AccommodationDetailContent() {
                 </div>
 
                 <button
-                  className="w-full bg-pink-500 text-white py-3 rounded-lg font-semibold hover:bg-pink-600 transition-colors mb-4"
-                  onClick={() => {
-                    alert("서비스 준비 중입니다.");
-                  }}
+                  className="w-full bg-pink-500 text-white py-3 rounded-lg font-semibold hover:bg-pink-600 transition-colors mb-4 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  onClick={handleReservation}
+                  disabled={isBooking || !checkInDate || !checkOutDate}
                 >
-                  예약하기
+                  {isBooking ? "예약 중..." : "예약하기"}
                 </button>
 
                 <p className="text-center text-gray-500 text-sm">

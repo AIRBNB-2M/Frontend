@@ -10,6 +10,7 @@
   "dependencies": {
     "@react-google-maps/api": "^2.20.7",
     "@stomp/stompjs": "^7.2.0",
+    "@tosspayments/tosspayments-sdk": "^2.4.1",
     "axios": "^1.11.0",
     "date-fns": "^4.1.0",
     "jwt-decode": "^4.0.0",
@@ -23,6 +24,7 @@
     "react-time-picker": "^8.0.2",
     "recharts": "^3.0.2",
     "sockjs-client": "^1.6.1",
+    "uuid": "^13.0.0",
     "zustand": "^4.5.7"
   },
   "devDependencies": {
