@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./react-time-picker-global.css";
 import AuthProvider from "@/components/AuthProvider";
+import Chatbot from "@/components/Chatbot";
 
 export const metadata: Metadata = {
   title: "AirL&J",
@@ -16,7 +17,10 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning={true}>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <Chatbot />
+        </AuthProvider>
       </body>
     </html>
   );
