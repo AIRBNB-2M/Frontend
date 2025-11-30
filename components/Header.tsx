@@ -12,8 +12,6 @@ import {
   LogOut,
   LogIn,
   UserPlus,
-  Home,
-  HelpCircle,
 } from "lucide-react";
 import { logout } from "@/lib/http/auth";
 
@@ -144,23 +142,6 @@ export default function Header() {
                     >
                       <UserPlus size={18} />
                       <span>회원가입</span>
-                    </Link>
-                    <div className="border-t border-gray-200 my-2"></div>
-                    <Link
-                      href="/host"
-                      className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    >
-                      <Home size={18} />
-                      <span>호스트 되기</span>
-                    </Link>
-                    <Link
-                      href="/help"
-                      className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    >
-                      <HelpCircle size={18} />
-                      <span>도움말</span>
                     </Link>
                   </>
                 )}

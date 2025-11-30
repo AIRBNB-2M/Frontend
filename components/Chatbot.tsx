@@ -154,6 +154,10 @@ export default function Chatbot() {
           );
         }
       }
+      // 스트리밍 완료 후 입력창에 포커스
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
     } catch (error) {
       console.error("챗봇 오류:", error);
       const errorMessage: ChatbotMessage = {
