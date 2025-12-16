@@ -1,10 +1,23 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, X, MessageCircle, Loader2 } from "lucide-react";
-import { ChatbotMessage } from "@/lib/chatbotTypes";
+import {
+  Send,
+  X,
+  MessageCircle,
+  Loader2,
+  ExternalLink,
+  Users,
+  Info,
+} from "lucide-react";
+import {
+  ChatbotMessage,
+  ChatbotMetadata,
+  RecommendedAccommodation,
+} from "@/lib/chatbotTypes";
 import { sendChatbotMessage, getChatbotHistory } from "@/lib/http/chatbot";
 import { useAuthStore } from "@/lib/authStore";
+import { useRouter } from "next/navigation";
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,6 +32,8 @@ export default function Chatbot() {
   const inputRef = useRef<HTMLInputElement>(null);
   const hasLoadedHistory = useRef(false);
 
+  const router = useRouter();
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -27,22 +42,18 @@ export default function Chatbot() {
     scrollToBottom();
   }, [messages]);
 
-  // 챗봇이 열릴 때 입력칸에 자동 포커스
   useEffect(() => {
     if (isOpen) {
       inputRef.current?.focus();
-      // 챗봇을 열 때마다 경고 메시지 다시 표시
       setShowWarning(true);
     }
   }, [isOpen]);
 
-  // 인증 초기화 대기 및 로그인 상태 확인
   useEffect(() => {
     const checkAuth = async () => {
       const { isInitialized, accessToken } = useAuthStore.getState();
 
       if (!isInitialized) {
-        // 인증 초기화가 완료될 때까지 대기
         const unsubscribe = useAuthStore.subscribe((state) => {
           if (state.isInitialized) {
             setIsAuthReady(true);
@@ -51,7 +62,6 @@ export default function Chatbot() {
           }
         });
 
-        // 타임아웃 설정 (최대 5초 대기)
         setTimeout(() => {
           const { accessToken } = useAuthStore.getState();
           setIsAuthReady(true);
@@ -67,7 +77,6 @@ export default function Chatbot() {
     checkAuth();
   }, []);
 
-  // 페이지 로드 시 대화 내역 불러오기
   useEffect(() => {
     const loadHistory = async () => {
       if (hasLoadedHistory.current || !isAuthReady) return;
@@ -80,7 +89,6 @@ export default function Chatbot() {
         if (history.length > 0) {
           setMessages(history);
         } else {
-          // 내역이 없으면 초기 환영 메시지 표시
           setMessages([
             {
               id: "welcome",
@@ -91,7 +99,6 @@ export default function Chatbot() {
         }
       } catch (error) {
         console.error("대화 내역 로드 오류:", error);
-        // 오류 발생 시에도 환영 메시지 표시
         setMessages([
           {
             id: "welcome",
@@ -117,47 +124,20 @@ export default function Chatbot() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    const userInput = input;
     setInput("");
     setIsLoading(true);
 
     try {
-      const response = await sendChatbotMessage(userInput);
+      const response = await sendChatbotMessage(input);
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let botMessageContent = "";
-
-      const botMessageId = (Date.now() + 1).toString();
       const botMessage: ChatbotMessage = {
-        id: botMessageId,
-        content: "",
+        id: (Date.now() + 1).toString(),
+        content: response.textResponse,
         sender: "bot",
+        metadata: response.metadata,
       };
 
       setMessages((prev) => [...prev, botMessage]);
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          botMessageContent += chunk;
-
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === botMessageId
-                ? { ...msg, content: botMessageContent }
-                : msg
-            )
-          );
-        }
-      }
-      // 스트리밍 완료 후 입력창에 포커스
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
     } catch (error) {
       console.error("챗봇 오류:", error);
       const errorMessage: ChatbotMessage = {
@@ -168,7 +148,6 @@ export default function Chatbot() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
-      // 로딩이 끝나면 입력칸에 포커스
       inputRef.current?.focus();
     }
   };
@@ -180,9 +159,86 @@ export default function Chatbot() {
     }
   };
 
+  // 숙소 추천 렌더링 함수
+  const renderRecommendedAccommodations = (
+    accommodations?: RecommendedAccommodation[]
+  ) => {
+    if (!accommodations || accommodations.length === 0) return null;
+
+    return (
+      <div className="mt-3 space-y-2">
+        <div className="text-base font-semibold text-gray-600">
+          추천 숙소 예약하러 가기
+        </div>
+        <div className="text-xs text-gray-400 flex items-center gap-1">
+          <Info className="w-3 h-3" />
+          <span>가격은 1박 기준으로 시기별로 상이</span>
+        </div>
+        {accommodations.map((acc) => (
+          <div
+            key={acc.id}
+            onClick={() => {
+              router.push(`/rooms/${acc.id}`);
+              setIsOpen(false); // 챗봇 닫기
+            }}
+            className="bg-gray-50 rounded-lg p-3 cursor-pointer hover:bg-gray-100 transition-colors border border-gray-200"
+          >
+            <div className="flex justify-between items-start mb-1">
+              <h4 className="font-semibold text-xs text-gray-800 line-clamp-1 flex-1">
+                {acc.title}
+              </h4>
+              <ExternalLink className="w-4 h-4 text-pink-500" />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-3 h-3 text-gray-400" />
+                <span className="text-xs text-gray-500">
+                  최대 {acc.maxPeople}명
+                </span>
+              </div>
+              <p className="text-xs font-bold text-pink-600">{acc.price}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // 메타데이터 렌더링 함수
+  const renderMetadata = (metadata?: ChatbotMetadata) => {
+    console.log("=== renderMetadata 호출 ===");
+    console.log("metadata:", metadata);
+
+    if (!metadata) {
+      console.log("❌ metadata가 없음");
+      return null;
+    }
+    if (!metadata) return null;
+
+    return (
+      <div className="mt-2">
+        {/* 숙소 추천 */}
+        {renderRecommendedAccommodations(metadata.recommendedAccommodations)}
+
+        {/* 기타 메타데이터 */}
+        {(metadata.accommodationType || metadata.refundPolicy) && (
+          <div className="mt-2 pt-2 border-t border-gray-200">
+            <div className="text-xs text-gray-500 space-y-1">
+              {metadata.accommodationType && (
+                <div>숙소 타입: {metadata.accommodationType}</div>
+              )}
+              {metadata.refundPolicy && (
+                <div>환불 정책: {metadata.refundPolicy}</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
-      {/* 플로팅 챗봇 버튼 */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
@@ -193,10 +249,8 @@ export default function Chatbot() {
         </button>
       )}
 
-      {/* 챗봇 윈도우 */}
       {isOpen && (
         <div className="fixed bottom-4 right-4 w-96 h-[600px] bg-white rounded-lg shadow-2xl flex flex-col z-50">
-          {/* Header */}
           <div className="bg-pink-500 text-white p-4 rounded-t-lg flex justify-between items-center">
             <div className="flex items-center gap-2">
               <MessageCircle className="w-5 h-5" />
@@ -210,7 +264,6 @@ export default function Chatbot() {
             </button>
           </div>
 
-          {/* 로그인 안내 메시지 */}
           {!isLoggedIn && showWarning && (
             <div className="bg-yellow-50 border-b border-yellow-200 p-3 relative">
               <button
@@ -232,7 +285,6 @@ export default function Chatbot() {
             </div>
           )}
 
-          {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
             {isLoadingHistory ? (
               <div className="flex justify-center items-center h-full">
@@ -264,6 +316,8 @@ export default function Chatbot() {
                       <p className="text-sm whitespace-pre-wrap break-words">
                         {message.content}
                       </p>
+                      {message.sender === "bot" &&
+                        renderMetadata(message.metadata)}
                     </div>
                   </div>
                 ))}
@@ -279,7 +333,6 @@ export default function Chatbot() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
           <div className="p-4 border-t bg-white rounded-b-lg">
             <div className="flex gap-2">
               <input
