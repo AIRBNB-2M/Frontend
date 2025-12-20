@@ -24,7 +24,7 @@ export interface PaymentResDto {
  * 결제 정보 저장 (결제 요청 전)
  */
 export async function savePayment(data: SavePaymentReqDto): Promise<void> {
-  await http.post("/api/v1/payments/save", data);
+  await http.post("/api/payments/save", data);
 }
 
 /**
@@ -33,6 +33,6 @@ export async function savePayment(data: SavePaymentReqDto): Promise<void> {
 export async function confirmPayment(
   data: PaymentConfirmReqDto
 ): Promise<PaymentResDto> {
-  const response = await http.post("/api/v1/payments/confirm", data);
+  const response = await http.post("/api/payments/confirm", data);
   return response.data;
 }
