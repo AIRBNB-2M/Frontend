@@ -43,7 +43,7 @@ interface ChatState {
   onToast?: (
     message: string,
     type: "success" | "error" | "info",
-    userName?: string
+    userName?: string,
   ) => void;
 
   // Actions
@@ -68,10 +68,10 @@ interface ChatState {
   addSentRequest: (request: ChatRequest) => void;
   removeRequest: (requestId: string) => void;
   handleChatRequestNotification: (
-    notification: StompChatRequestNotification
+    notification: StompChatRequestNotification,
   ) => void;
   handleChatRequestResponse: (
-    notification: StompChatRequestResponseNotification
+    notification: StompChatRequestResponseNotification,
   ) => void;
   acceptRequest: (requestId: string) => Promise<ChatRoom>;
   rejectRequest: (requestId: string) => Promise<void>;
@@ -82,8 +82,8 @@ interface ChatState {
     callback: (
       message: string,
       type: "success" | "error" | "info",
-      userName?: string
-    ) => void
+      userName?: string,
+    ) => void,
   ) => void;
 }
 
@@ -123,7 +123,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         `/topic/${room.roomId}`,
         (message) => {
           const receivedMessage: StompChatMessageResponse = JSON.parse(
-            message.body
+            message.body,
           );
 
           const chatMessage: ChatMessage = {
@@ -153,7 +153,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
               chatRooms: state.chatRooms.map((r) =>
                 r.roomId === receivedMessage.roomId
                   ? { ...r, isOtherMemberActive: false }
-                  : r
+                  : r,
               ),
             }));
           }
@@ -178,7 +178,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             }),
           }));
         },
-        { Authorization: `Bearer ${accessToken}` }
+        { Authorization: `Bearer ${accessToken}` },
       );
 
       subscriptions.set(room.roomId, subscription);
@@ -207,7 +207,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       `/topic/${room.roomId}`,
       (message) => {
         const receivedMessage: StompChatMessageResponse = JSON.parse(
-          message.body
+          message.body,
         );
 
         const chatMessage: ChatMessage = {
@@ -235,7 +235,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             chatRooms: state.chatRooms.map((r) =>
               r.roomId === receivedMessage.roomId
                 ? { ...r, isOtherMemberActive: false }
-                : r
+                : r,
             ),
           }));
         }
@@ -258,7 +258,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
           }),
         }));
       },
-      { Authorization: `Bearer ${accessToken}` }
+      { Authorization: `Bearer ${accessToken}` },
     );
 
     const newSubscriptions = new Map(activeSubscriptions);
@@ -303,7 +303,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       hasMoreMessages: true,
       isLoadingMessages: true,
       chatRooms: get().chatRooms.map((r) =>
-        r.roomId === room.roomId ? { ...r, unreadCount: 0 } : r
+        r.roomId === room.roomId ? { ...r, unreadCount: 0 } : r,
       ),
     });
 
@@ -311,7 +311,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       const { messages: rawMessages, hasMore } = await fetchChatMessages(
         room.roomId,
         undefined,
-        pageSize
+        pageSize,
       );
 
       const { accessToken } = useAuthStore.getState();
@@ -350,7 +350,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       const { messages: olderMessages, hasMore } = await fetchChatMessages(
         activeChatRoom.roomId,
         oldestId,
-        pageSize
+        pageSize,
       );
 
       const { accessToken } = useAuthStore.getState();
@@ -395,7 +395,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   addMessage: (message) => {
     set((state) => {
       const exists = state.messages.some(
-        (m) => m.messageId === message.messageId
+        (m) => m.messageId === message.messageId,
       );
       if (exists) return state;
 
@@ -434,14 +434,14 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       const updatedRoom = await updateChatRoomName(
         room.roomId,
         room.memberId,
-        customName
+        customName,
       );
 
       set((state) => ({
         chatRooms: state.chatRooms.map((room) =>
           room.roomId === updatedRoom.roomId
             ? { ...room, customRoomName: updatedRoom.customRoomName }
-            : room
+            : room,
         ),
         activeChatRoom:
           state.activeChatRoom?.roomId === updatedRoom.roomId
@@ -504,7 +504,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   removeRequest: (requestId) => {
     set((state) => ({
       receivedRequests: state.receivedRequests.filter(
-        (r) => r.requestId !== requestId
+        (r) => r.requestId !== requestId,
       ),
       sentRequests: state.sentRequests.filter((r) => r.requestId !== requestId),
     }));
@@ -550,7 +550,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
       console.log(
         "채팅 요청이 수락되었습니다. 채팅방이 추가되었습니다:",
-        chatRoom
+        chatRoom,
       );
     } else if (!accepted) {
       // 거절된 경우
@@ -603,7 +603,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         new SockJS(
           `${
             process.env.NEXT_PUBLIC_API_BASE_URL
-          }/connect?token=${encodeURIComponent(accessToken)}`
+          }/connect?token=${encodeURIComponent(accessToken)}`,
         ),
       connectHeaders: {
         Authorization: `Bearer ${accessToken}`,
@@ -656,11 +656,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       `/user/queue/chat-requests`,
       (message) => {
         const notification: StompChatRequestNotification = JSON.parse(
-          message.body
+          message.body,
         );
         get().handleChatRequestNotification(notification);
       },
-      { Authorization: `Bearer ${accessToken}` }
+      { Authorization: `Bearer ${accessToken}` },
     );
 
     // 채팅 요청 응답 알림 구독
@@ -668,11 +668,11 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       `/user/queue/chat-request-responses`,
       (message) => {
         const notification: StompChatRequestResponseNotification = JSON.parse(
-          message.body
+          message.body,
         );
         get().handleChatRequestResponse(notification);
       },
-      { Authorization: `Bearer ${accessToken}` }
+      { Authorization: `Bearer ${accessToken}` },
     );
   },
 

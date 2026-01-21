@@ -29,6 +29,7 @@ export interface DetailAccommodationResDto {
     rating: number;
     content: string;
   }[];
+  reservedDates: ReservedDateDto[];
 }
 
 export interface ViewHistoryDto {
@@ -77,4 +78,9 @@ export interface AccommodationPriceResDto {
   accommodationId: number;
   date: string;
   price: number;
+}
+
+export interface ReservedDateDto {
+  start: string;
+  end: string;
 }

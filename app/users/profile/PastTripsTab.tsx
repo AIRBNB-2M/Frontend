@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
-import { Luggage, Calendar, ChevronLeft, ChevronRight, X } from "lucide-react";
+import {
+  Luggage,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Check,
+} from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import Link from "next/link";
@@ -39,7 +46,7 @@ export default function PastTripsTab() {
   // 리뷰 모달 상태
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<TripHistoryResDto | null>(
-    null
+    null,
   );
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -62,7 +69,7 @@ export default function PastTripsTab() {
             page: pageNumber,
             size: 6,
           },
-        }
+        },
       );
 
       setTrips(response.data.contents);
@@ -96,7 +103,7 @@ export default function PastTripsTab() {
     return `${format(start, "yyyy년 M월 d일", { locale: ko })} - ${format(
       end,
       "M월 d일",
-      { locale: ko }
+      { locale: ko },
     )}`;
   };
 
@@ -130,7 +137,7 @@ export default function PastTripsTab() {
         {
           rating,
           content: reviewText,
-        }
+        },
       );
 
       // 리뷰 작성 성공 후 목록 새로고침
@@ -220,7 +227,14 @@ export default function PastTripsTab() {
                 </div>
               </div>
             </Link>
-            {!trip.hasReviewed && (
+            {trip.hasReviewed ? (
+              <div className="flex justify-center mt-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 text-xs font-medium rounded-md">
+                  <Check className="w-3 h-3" />
+                  <span>리뷰 작성 완료</span>
+                </div>
+              </div>
+            ) : (
               <div className="flex justify-center mt-3">
                 <button
                   onClick={(e) => {
@@ -293,7 +307,7 @@ export default function PastTripsTab() {
                   <p className="text-sm text-gray-600">
                     {formatDateRange(
                       selectedTrip.startDate,
-                      selectedTrip.endDate
+                      selectedTrip.endDate,
                     )}
                   </p>
                 </div>

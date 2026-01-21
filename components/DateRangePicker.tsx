@@ -8,10 +8,12 @@ import { ko } from "date-fns/locale";
 
 interface AirbnbDateRangePickerProps {
   onDateRangeChange?: (range: { from?: Date; to?: Date } | undefined) => void;
+  reservedDates?: { start: Date; end: Date }[];
 }
 
 export default function AirbnbDateRangePicker({
   onDateRangeChange,
+  reservedDates = [],
 }: AirbnbDateRangePickerProps) {
   const [range, setRange] = useState<DateRange | undefined>();
   const [open, setOpen] = useState(false);
@@ -123,15 +125,23 @@ export default function AirbnbDateRangePicker({
             modifiers={{
               disabled: (date) => {
                 const today = startOfDay(new Date());
+                const dateStartOfDay = startOfDay(date);
+
+                // 예약된 날짜인지 확인
+                const isReserved = reservedDates.some((rd) => {
+                  const start = startOfDay(rd.start);
+                  const end = startOfDay(rd.end);
+                  return dateStartOfDay >= start && dateStartOfDay <= end;
+                });
 
                 // 체크인 이전 날짜는 비활성화
                 if (range?.from) {
                   const checkinDate = startOfDay(range.from);
-                  return isBefore(date, checkinDate);
+                  return isBefore(dateStartOfDay, checkinDate) || isReserved;
                 }
 
                 // 오늘 이전 날짜는 항상 비활성화
-                return isBefore(date, today);
+                return isBefore(dateStartOfDay, today) || isReserved;
               },
             }}
             modifiersClassNames={{

@@ -101,7 +101,7 @@ function AccommodationDetailContent() {
       try {
         const data = await fetchAccommodationPrice(
           accommodationId,
-          format(checkInDate, "yyyy-MM-dd")
+          format(checkInDate, "yyyy-MM-dd"),
         );
         setDailyPrice(data.price);
         setPriceLoading(false);
@@ -116,7 +116,7 @@ function AccommodationDetailContent() {
   }, [checkInDate, checkOutDate, accommodationId, accommodation?.price]);
 
   const handleDateRangeChange = (
-    range: { from?: Date; to?: Date } | undefined
+    range: { from?: Date; to?: Date } | undefined,
   ) => {
     if (range?.from && range?.to) {
       setCheckInDate(range.from);
@@ -169,8 +169,8 @@ function AccommodationDetailContent() {
 
       // 6. 예약 API 호출
       const reservationData = {
-        startDate: checkInDate.toISOString(),
-        endDate: checkOutDate.toISOString(),
+        startDate: format(checkInDate, "yyyy-MM-dd"),
+        endDate: format(checkOutDate, "yyyy-MM-dd"),
         adults,
         children,
         infants,
@@ -178,7 +178,7 @@ function AccommodationDetailContent() {
 
       const response = await createReservation(
         Number(accommodationId),
-        reservationData
+        reservationData,
       );
 
       const bookingData = {
@@ -215,7 +215,7 @@ function AccommodationDetailContent() {
         // 찜 해제
         await removeAccommodationFromWishlist(
           wishlistId,
-          Number(accommodationId)
+          Number(accommodationId),
         );
         setIsInWishlist(false);
         setWishlistId(null);
@@ -245,7 +245,7 @@ function AccommodationDetailContent() {
   // 위시리스트 추가 성공 핸들러
   const handleWishlistSuccess = (
     selectedWishlistId: number,
-    selectedWishlistName: string
+    selectedWishlistName: string,
   ) => {
     setIsInWishlist(true);
     setWishlistId(selectedWishlistId);
@@ -436,7 +436,7 @@ function AccommodationDetailContent() {
                             setSelectedImageIndex(
                               selectedImageIndex === 0
                                 ? allImages.length - 1
-                                : selectedImageIndex - 1
+                                : selectedImageIndex - 1,
                             )
                           }
                           className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded-full p-2 sm:p-3 transition-all backdrop-blur-sm"
@@ -448,7 +448,7 @@ function AccommodationDetailContent() {
                             setSelectedImageIndex(
                               selectedImageIndex === allImages.length - 1
                                 ? 0
-                                : selectedImageIndex + 1
+                                : selectedImageIndex + 1,
                             )
                           }
                           className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white rounded-full p-2 sm:p-3 transition-all backdrop-blur-sm"
@@ -495,13 +495,13 @@ function AccommodationDetailContent() {
                       setSelectedImageIndex(
                         selectedImageIndex === 0
                           ? allImages.length - 1
-                          : selectedImageIndex - 1
+                          : selectedImageIndex - 1,
                       );
                     } else if (e.key === "ArrowRight" && allImages.length > 1) {
                       setSelectedImageIndex(
                         selectedImageIndex === allImages.length - 1
                           ? 0
-                          : selectedImageIndex + 1
+                          : selectedImageIndex + 1,
                       );
                     }
                   }}
@@ -635,6 +635,12 @@ function AccommodationDetailContent() {
                 <div className="space-y-4 mb-6">
                   <AirbnbDateRangePicker
                     onDateRangeChange={handleDateRangeChange}
+                    reservedDates={
+                      accommodation?.reservedDates.map((rd) => ({
+                        start: new Date(rd.start),
+                        end: new Date(rd.end),
+                      })) || []
+                    }
                   />
 
                   {/* 게스트 선택 드롭다운*/}

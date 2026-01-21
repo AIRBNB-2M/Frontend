@@ -70,13 +70,15 @@ export async function fetchChatRooms(): Promise<ChatRoom[]> {
 export async function fetchChatMessages(
   roomId: number,
   lastMessageId?: number,
-  size: number = 50
+  size: number = 50,
 ): Promise<ChatMessagesResponse> {
   const params = new URLSearchParams();
   if (lastMessageId) params.append("lastMessageId", lastMessageId.toString());
   params.append("size", size.toString());
 
-  const response = await http.get(`/api/chat/${roomId}/messages?${params}`);
+  const response = await http.get(
+    `/api/chat/rooms/${roomId}/messages?${params}`,
+  );
   return response.data;
 }
 
@@ -86,9 +88,9 @@ export async function fetchChatMessages(
 export async function updateChatRoomName(
   roomId: number,
   otherMemberId: number,
-  customName: string
+  customName: string,
 ): Promise<ChatRoom> {
-  const response = await http.patch(`/api/chat/${roomId}/name`, {
+  const response = await http.patch(`/api/chat/rooms/${roomId}/name`, {
     customName,
     otherMemberId,
   } as UpdateChatRoomNameRequest);
@@ -100,14 +102,14 @@ export async function updateChatRoomName(
  */
 export async function leaveChatRoom(
   roomId: number,
-  isActive: boolean
+  isActive: boolean,
 ): Promise<void> {
-  await http.post(`/api/chat/${roomId}`, { isActive });
+  await http.post(`/api/chat/rooms/${roomId}`, { isActive });
 }
 
 /**
  * 채팅방의 모든 메시지 읽음 처리
  */
 export async function markChatRoomAsRead(roomId: number): Promise<void> {
-  await http.put(`/api/chat/${roomId}/read`);
+  await http.put(`/api/chat/rooms/${roomId}/read`);
 }
