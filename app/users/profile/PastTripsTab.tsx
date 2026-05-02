@@ -133,7 +133,7 @@ export default function PastTripsTab() {
       setSubmitting(true);
 
       await http.post(
-        `/api/reservations/${selectedTrip.reservationId}/reviews`,
+        `/api/reviews/reservations/${selectedTrip.reservationId}`,
         {
           rating,
           content: reviewText,

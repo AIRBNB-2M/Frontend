@@ -8,7 +8,7 @@ import http from "./http";
 
 // 프로필 업데이트 함수
 export async function updateMyProfile(
-  updateData: ProfileUpdateRequest & { profileImageFile?: File | null }
+  updateData: ProfileUpdateRequest & { profileImageFile?: File | null },
 ): Promise<ProfileUpdateResponse> {
   const formData = new FormData();
 
@@ -19,7 +19,9 @@ export async function updateMyProfile(
   };
   formData.append(
     "editProfileRequest",
-    new Blob([JSON.stringify(editProfileRequest)], { type: "application/json" })
+    new Blob([JSON.stringify(editProfileRequest)], {
+      type: "application/json",
+    }),
   );
 
   // 프로필 이미지 파일이 있으면 추가
@@ -41,6 +43,6 @@ export async function fetchMyProfile(): Promise<DefaultProfileResDto> {
 
 // 최근 조회 내역 조회
 export async function fetchRecentViews(): Promise<ViewHistoryResDto[]> {
-  const response = await http.get("/api/accommodations/recent");
+  const response = await http.get("/api/members/me/history/accommodations");
   return response.data;
 }

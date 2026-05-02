@@ -11,5 +11,5 @@ export async function logout(): Promise<void> {
  * 이메일 인증 요청
  */
 export async function sendEmailVerification(): Promise<void> {
-  await http.post("/api/auth/email/verify");
+  await http.post("/api/members/me/email-verification");
 }

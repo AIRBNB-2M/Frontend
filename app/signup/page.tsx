@@ -31,7 +31,7 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
   const setAccessToken = useAuthStore(
-    (state: AuthState) => state.setAccessToken
+    (state: AuthState) => state.setAccessToken,
   );
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   const todayIso = useMemo(() => new Date().toISOString().split("T")[0], []);
@@ -40,7 +40,7 @@ export default function SignUpPage() {
     e.preventDefault();
     if (!API_BASE_URL) {
       alert(
-        "서버 주소가 설정되지 않았습니다. NEXT_PUBLIC_API_BASE_URL을 확인하세요."
+        "서버 주소가 설정되지 않았습니다. NEXT_PUBLIC_API_BASE_URL을 확인하세요.",
       );
       return;
     }
@@ -85,7 +85,7 @@ export default function SignUpPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await http.post("/api/auth/signup", payload);
+      const res = await http.post("/api/members", payload);
       // 로그인과 동일하게 Authorization 헤더에서 액세스 토큰 추출 후 저장
       const authHeader =
         (res.headers as any)?.["authorization"] ||

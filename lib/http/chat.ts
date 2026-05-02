@@ -104,7 +104,7 @@ export async function leaveChatRoom(
   roomId: number,
   isActive: boolean,
 ): Promise<void> {
-  await http.post(`/api/chat/rooms/${roomId}`, { isActive });
+  await http.post(`/api/chat/rooms/${roomId}`);
 }
 
 /**
